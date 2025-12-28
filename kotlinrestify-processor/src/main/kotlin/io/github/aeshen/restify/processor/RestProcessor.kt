@@ -22,9 +22,8 @@ import com.squareup.kotlinpoet.ksp.toTypeName
 
 class RestProcessor(
     private val env: SymbolProcessorEnvironment,
-    private val generatedPackage: String
+    private val generatedPackage: String,
 ) : SymbolProcessor {
-
     private val logger: KSPLogger = env.logger
     private val codeGenerator: CodeGenerator = env.codeGenerator
 
@@ -46,20 +45,26 @@ class RestProcessor(
 
         // Fully‑qualified names of the annotations (they live in the annotations module)
         val restEndpointFqn = "io.github.aeshen.restify.annotation.RestEndpoint"
-        val queryParamFqn   = "io.github.aeshen.restify.annotation.QueryParam"
-        val bodyFqn         = "io.github.aeshen.restify.annotation.Body"
+        val queryParamFqn = "io.github.aeshen.restify.annotation.QueryParam"
+        val bodyFqn = "io.github.aeshen.restify.annotation.Body"
 
-        restEndpointType = resolver.getClassDeclarationByName(
-            resolver.getKSNameFromString(restEndpointFqn)
-        )?.asStarProjectedType()
+        restEndpointType =
+            resolver
+                .getClassDeclarationByName(
+                    resolver.getKSNameFromString(restEndpointFqn),
+                )?.asStarProjectedType()
 
-        queryParamType = resolver.getClassDeclarationByName(
-            resolver.getKSNameFromString(queryParamFqn)
-        )?.asStarProjectedType()
+        queryParamType =
+            resolver
+                .getClassDeclarationByName(
+                    resolver.getKSNameFromString(queryParamFqn),
+                )?.asStarProjectedType()
 
-        bodyType = resolver.getClassDeclarationByName(
-            resolver.getKSNameFromString(bodyFqn)
-        )?.asStarProjectedType()
+        bodyType =
+            resolver
+                .getClassDeclarationByName(
+                    resolver.getKSNameFromString(bodyFqn),
+                )?.asStarProjectedType()
     }
 
     // -------------------------------------------------------------------------
@@ -79,9 +84,11 @@ class RestProcessor(
         // -----------------------------------------------------------------
         // 3️⃣  Find every function annotated with @RestEndpoint
         // -----------------------------------------------------------------
-        val endpointFunctions = resolver.getSymbolsWithAnnotation(
-            restEndpointType!!.declaration.qualifiedName!!.asString()
-        ).filterIsInstance<KSFunctionDeclaration>()
+        val endpointFunctions =
+            resolver
+                .getSymbolsWithAnnotation(
+                    restEndpointType!!.declaration.qualifiedName!!.asString(),
+                ).filterIsInstance<KSFunctionDeclaration>()
 
         if (!endpointFunctions.iterator().hasNext()) {
             // Nothing to generate – return empty list to indicate we’re done.
@@ -91,9 +98,10 @@ class RestProcessor(
         // -----------------------------------------------------------------
         // 4️⃣  Group by the containing class / file (so we generate one client per group)
         // -----------------------------------------------------------------
-        val groups = endpointFunctions.groupBy { fn ->
-            fn.parentDeclaration?.qualifiedName?.asString() ?: "<top‑level>"
-        }
+        val groups =
+            endpointFunctions.groupBy { fn ->
+                fn.parentDeclaration?.qualifiedName?.asString() ?: "<top‑level>"
+            }
 
         groups.forEach { (containerName, functions) ->
             generateClient(containerName, functions, resolver)
@@ -109,7 +117,7 @@ class RestProcessor(
     private fun generateClient(
         containerName: String,
         functions: List<KSFunctionDeclaration>,
-        resolver: Resolver
+        resolver: Resolver,
     ) {
         // Name of the generated client class (e.g. `UserServiceClient`)
         val clientClassName = "${containerName.substringAfterLast('.')}Client"
@@ -120,23 +128,28 @@ class RestProcessor(
         // -----------------------------------------------------------------
         // 5.1  Define the constructor that receives an HttpClient (you’ll provide the interface later)
         // -----------------------------------------------------------------
-        val httpClientParam = ParameterSpec.builder(
-            "http",
-            ClassName("io.github.ashen.restify.http", "HttpClient")
-        ).build()
+        val httpClientParam =
+            ParameterSpec
+                .builder(
+                    "http",
+                    ClassName("io.github.ashen.restify.http", "HttpClient"),
+                ).build()
 
-        val clientClass = TypeSpec.classBuilder(clientClassName)
-            .primaryConstructor(
-                FunSpec.constructorBuilder()
-                    .addParameter(httpClientParam)
-                    .build()
-            )
-            .addProperty(
-                PropertySpec.builder("http", httpClientParam.type)
-                    .initializer("http")
-                    .addModifiers(KModifier.PRIVATE)
-                    .build()
-            )
+        val clientClass =
+            TypeSpec
+                .classBuilder(clientClassName)
+                .primaryConstructor(
+                    FunSpec
+                        .constructorBuilder()
+                        .addParameter(httpClientParam)
+                        .build(),
+                ).addProperty(
+                    PropertySpec
+                        .builder("http", httpClientParam.type)
+                        .initializer("http")
+                        .addModifiers(KModifier.PRIVATE)
+                        .build(),
+                )
 
         // -----------------------------------------------------------------
         // 5.2  For each annotated function, generate a suspend wrapper that calls the HttpClient
@@ -151,11 +164,13 @@ class RestProcessor(
         // 5.3  Write the file to the generated sources directory
         // -----------------------------------------------------------------
         val fileSpec = fileBuilder.build()
-        val deps = Dependencies(
-            aggregating = false,
-            *functions.mapNotNull { it.containingFile }.toTypedArray()
-        )
-        codeGenerator.createNewFile(deps, generatedPackage, clientClassName)
+        val deps =
+            Dependencies(
+                aggregating = false,
+                *functions.mapNotNull { it.containingFile }.toTypedArray(),
+            )
+        codeGenerator
+            .createNewFile(deps, generatedPackage, clientClassName)
             .bufferedWriter()
             .use { writer -> fileSpec.writeTo(writer) }
 
@@ -167,28 +182,31 @@ class RestProcessor(
     // -------------------------------------------------------------------------
     private fun generateFunctionStub(
         fn: KSFunctionDeclaration,
-        resolver: Resolver
+        resolver: Resolver,
     ): FunSpec? {
         // -----------------------------------------------------------------
         // 6.1  Grab the @RestEndpoint annotation and its arguments
         // -----------------------------------------------------------------
-        val endpointAnno = fn.annotations.firstOrNull {
-            it.shortName.asString() == "RestEndpoint"
-        } ?: return null
+        val endpointAnno =
+            fn.annotations.firstOrNull {
+                it.shortName.asString() == "RestEndpoint"
+            } ?: return null
 
         // Extract `method` (enum) and `path` (String) from the annotation
         val methodArg = endpointAnno.arguments.first { it.name?.asString() == "method" }
-        val pathArg   = endpointAnno.arguments.first { it.name?.asString() == "path" }
+        val pathArg = endpointAnno.arguments.first { it.name?.asString() == "path" }
 
         // `method` is stored as a KSName that points to the enum constant (e.g. GET)
         val httpMethod = (methodArg.value as KSName).getShortName()
-        val rawPath    = pathArg.value as String
+        val rawPath = pathArg.value as String
 
         // -----------------------------------------------------------------
         // 6.2  Prepare the function signature (copy parameters & return type)
         // -----------------------------------------------------------------
-        val funBuilder = FunSpec.builder(fn.simpleName.asString())
-            .addModifiers(KModifier.SUSPEND)
+        val funBuilder =
+            FunSpec
+                .builder(fn.simpleName.asString())
+                .addModifiers(KModifier.SUSPEND)
 
         // Return type (if any)
         fn.returnType?.let { ret ->
@@ -199,7 +217,7 @@ class RestProcessor(
         fn.parameters.forEach { param ->
             funBuilder.addParameter(
                 param.name?.asString() ?: "param",
-                param.type.toTypeName()
+                param.type.toTypeName(),
             )
         }
 
@@ -216,9 +234,11 @@ class RestProcessor(
                     val nameArg = qpAnno.arguments.first { it.name?.asString() == "name" }.value as String
                     queryParams.add(nameArg to param)
                 }
+
                 param.annotations.any { it.shortName.asString() == "Body" } -> {
                     bodyParam = param
                 }
+
                 else -> {
                     // Unannotated parameters are assumed to be **path variables**
                     // (e.g. function foo(id: String) -> path "/users/{id}")
@@ -232,44 +252,56 @@ class RestProcessor(
         var urlExpression = "\"$rawPath\""
 
         // Replace `{name}` placeholders with Kotlin string interpolation
-        fn.parameters.filter { p ->
-            p.annotations.none { it.shortName.asString() in listOf("QueryParam", "Body") }
-        }.forEach { p ->
-            val placeholder = "{${p.name?.asString()}}"
-            urlExpression = urlExpression.replace(placeholder, "\${${p.name?.asString()}}")
-        }
+        fn.parameters
+            .filter { p ->
+                p.annotations.none { it.shortName.asString() in listOf("QueryParam", "Body") }
+            }.forEach { p ->
+                val placeholder = "{${p.name?.asString()}}"
+                urlExpression = urlExpression.replace(placeholder, "\${${p.name?.asString()}}")
+            }
 
         // Append query parameters if any
         if (queryParams.isNotEmpty()) {
-            val qpString = queryParams.joinToString("&") { (name, param) ->
-                "$name=\${${param.name?.asString()}}"
-            }
-            urlExpression = "\"${'$'}{${urlExpression}}?$qpString\""
+            val qpString =
+                queryParams.joinToString("&") { (name, param) ->
+                    "$name=\${${param.name?.asString()}}"
+                }
+            urlExpression = "\"${'$'}{$urlExpression}?$qpString\""
         }
 
         // -----------------------------------------------------------------
         // 6.5  Emit the call to the injected HttpClient
         // -----------------------------------------------------------------
-        val httpCall = when (httpMethod) {
-            "GET"    -> "http.get($urlExpression)"
-            "POST"   -> {
-                val bodyExpr = bodyParam?.let { "${it.name?.asString()}" } ?: "null"
-                "http.post($urlExpression, $bodyExpr)"
+        val httpCall =
+            when (httpMethod) {
+                "GET" -> {
+                    "http.get($urlExpression)"
+                }
+
+                "POST" -> {
+                    val bodyExpr = bodyParam?.let { "${it.name?.asString()}" } ?: "null"
+                    "http.post($urlExpression, $bodyExpr)"
+                }
+
+                "PUT" -> {
+                    val bodyExpr = bodyParam?.let { "${it.name?.asString()}" } ?: "null"
+                    "http.put($urlExpression, $bodyExpr)"
+                }
+
+                "PATCH" -> {
+                    val bodyExpr = bodyParam?.let { "${it.name?.asString()}" } ?: "null"
+                    "http.patch($urlExpression, $bodyExpr)"
+                }
+
+                "DELETE" -> {
+                    "http.delete($urlExpression)"
+                }
+
+                else -> {
+                    logger.error("Unsupported HTTP method $httpMethod on ${fn.qualifiedName?.asString()}")
+                    return null
+                }
             }
-            "PUT"    -> {
-                val bodyExpr = bodyParam?.let { "${it.name?.asString()}" } ?: "null"
-                "http.put($urlExpression, $bodyExpr)"
-            }
-            "PATCH"  -> {
-                val bodyExpr = bodyParam?.let { "${it.name?.asString()}" } ?: "null"
-                "http.patch($urlExpression, $bodyExpr)"
-            }
-            "DELETE" -> "http.delete($urlExpression)"
-            else -> {
-                logger.error("Unsupported HTTP method $httpMethod on ${fn.qualifiedName?.asString()}")
-                return null
-            }
-        }
 
         // -----------------------------------------------------------------
         // 6.6  Return the result (the generated function mirrors the original return type)

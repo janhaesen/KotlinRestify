@@ -1,6 +1,14 @@
 rootProject.name = "kotlin-restify"
 
-includeBuild("build-logic")
+dependencyResolutionManagement {
+    repositories {
+        gradlePluginPortal()
+        mavenCentral()
+    }
+}
+
+includeBuild("build-logic/kotlin-jvm-convention")
+includeBuild("build-logic/ktlint-convention")
 
 include(
     ":kotlinrestify-annotations",

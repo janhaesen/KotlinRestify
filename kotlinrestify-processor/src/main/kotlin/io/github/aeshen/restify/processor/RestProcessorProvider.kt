@@ -7,8 +7,9 @@ import com.google.devtools.ksp.processing.SymbolProcessorProvider
 class RestProcessorProvider : SymbolProcessorProvider {
     override fun create(environment: SymbolProcessorEnvironment): SymbolProcessor {
         // Optional: read a custom argument that the convention plugin may pass
-        val generatedPkg = environment.options["restify.generatedPackage"]
-            ?: "io.github.aeshen.restify.generated"
+        val generatedPkg =
+            environment.options["restify.generatedPackage"]
+                ?: "io.github.aeshen.restify.generated"
         return RestProcessor(environment, generatedPkg)
     }
 }

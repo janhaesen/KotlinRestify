@@ -62,10 +62,10 @@ class KotlinJvmConventionPlugin : Plugin<Project> {
                 // `ksp` configuration is added by the KSP Gradle plugin.
                 // Because the convention plugin runs after the `plugins {}` block, the
                 // `ksp` configuration already exists.
-                add("ksp", "io.github.aeshen:kotlinrestify-processor:0.1.0")
+                // add("ksp", "io.github.aeshen:kotlinrestify-processor:0.1.0")
             }
 
-            // Optional: expose the generated package name as a compiler argument
+            // Expose the generated package name as a compiler argument
             // (allows downstream projects to override it if they wish)
             extensions.configure<com.google.devtools.ksp.gradle.KspExtension> {
                 arg("restify.generatedPackage", "io.github.aeshen.restify.generated")
@@ -80,13 +80,13 @@ class KotlinJvmConventionPlugin : Plugin<Project> {
                     languageVersion.set(kotlinLangVersionEnum)
                     apiVersion.set(kotlinLangVersionEnum)
 
-                    allWarningsAsErrors.set(true)
+                    allWarningsAsErrors.set(false)
 
                     freeCompilerArgs.addAll(
                         listOf(
                             // • Progressive mode – enables newer language features early.
                             //   (Deprecated after Kotlin 1.8, but still works for older releases.)
-                            "-Xprogressive",
+                            "-progressive",
                             "-Xjsr305=strict",
 
                             // • Enable explicit API mode – forces public APIs to be declared

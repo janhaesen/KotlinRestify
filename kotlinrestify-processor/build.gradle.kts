@@ -1,5 +1,6 @@
 plugins {
     id("kotlin-jvm-convention")
+    id("ktlint-convention")
 
     alias(libs.plugins.ksp)
 }
