@@ -1,4 +1,4 @@
-package io.github.ashen
+package io.github.aeshen
 
 import org.gradle.api.Plugin
 import org.gradle.api.Project
@@ -37,6 +37,7 @@ class KotlinJvmConventionPlugin : Plugin<Project> {
 
             pluginManager.apply(KotlinPluginWrapper::class.java)
             pluginManager.apply("org.jetbrains.kotlin.plugin.serialization")
+            pluginManager.apply("com.google.devtools.ksp")
 
             repositories {
                 mavenCentral()
@@ -57,6 +58,17 @@ class KotlinJvmConventionPlugin : Plugin<Project> {
                 // Test libraries (JUnit 5 + Kotlin test)
                 add("testImplementation", libs.findLibrary("kotlin.test").get())
                 add("testImplementation", "org.junit.jupiter:junit-jupiter:5.10.2")
+
+                // `ksp` configuration is added by the KSP Gradle plugin.
+                // Because the convention plugin runs after the `plugins {}` block, the
+                // `ksp` configuration already exists.
+                add("ksp", "io.github.aeshen:kotlinrestify-processor:0.1.0")
+            }
+
+            // Optional: expose the generated package name as a compiler argument
+            // (allows downstream projects to override it if they wish)
+            extensions.configure<com.google.devtools.ksp.gradle.KspExtension> {
+                arg("restify.generatedPackage", "io.github.aeshen.restify.generated")
             }
 
             val javaVersionTarget = JvmTarget.fromTarget(findVersion(libs, "java"))

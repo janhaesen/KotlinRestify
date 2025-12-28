@@ -6,6 +6,8 @@ kotlinx-coroutines = "1.10.2"
 kotlinx-serialization = "1.9.0"
 resilience4j = "2.1.0"
 junit5 = "6.0.1"
+ksp = "2.0.0-1.0.21"
+kotlinpoet = "2.2.0"
 
 [libraries]
 # Kotlin
@@ -20,6 +22,13 @@ kotlinx-coroutines = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core",
 kotlinx-serialization = { module = "org.jetbrains.kotlinx:kotlinx-serialization-core", version.ref = "kotlinx-serialization" }
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinx-serialization" }
 
+# KSP (Kotlin Symbol Processing)
+ksp-api = { module = "com.google.devtools.ksp:symbol-processing-api", version.ref = "ksp" }
+ksp-gradle-plugin = { module = "com.google.devtools.ksp:symbol-processing-gradle-plugin", version.ref = "ksp" }
+
+kotlin-poet = { module = "com.squareup:kotlinpoet", version.ref = "kotlinpoet" }
+kotlin-poet-ksp = { module = "com.squareup:kotlinpoet-ksp", version.ref = "kotlinpoet" }
+
 # Test
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
 kotlin-test-junit5 = { module = "org.jetbrains.kotlin:kotlin-test-junit5", version.ref = "kotlin" }
@@ -27,3 +36,4 @@ kotlin-test-junit5 = { module = "org.jetbrains.kotlin:kotlin-test-junit5", versi
 [bundles]
 
 [plugins]
+ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }

@@ -18,6 +18,9 @@ out/
 .gradle/
 build/
 # Keep the wrapper jar (needed for reproducible builds)
+!gradlew
+!gradlew.bat
+!gradle/wrapper/gradle-wrapper.properties
 !gradle/wrapper/gradle-wrapper.jar
 
 # -------------------------------------------------

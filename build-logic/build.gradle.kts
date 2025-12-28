@@ -4,7 +4,7 @@ plugins {
     `maven-publish`
 }
 
-group = "io.github.ashen"
+group = "io.github.aeshen"
 version = "0.1.0"
 
 repositories {
@@ -24,13 +24,15 @@ dependencies {
     implementation(libs.findLibrary("kotlinx.coroutines").get())
     implementation(libs.findLibrary("kotlinx.serialization").get())
     implementation(libs.findLibrary("kotlinx.serialization.json").get())
+    implementation(libs.findLibrary("ksp.api").get())
+    implementation(libs.findLibrary("ksp.gradle.plugin").get())
 }
 
 gradlePlugin {
     plugins {
         create("kotlinJvmConvention") {
             id = "kotlin-jvm-convention"
-            implementationClass = "io.github.ashen.KotlinJvmConventionPlugin"
+            implementationClass = "io.github.aeshen.KotlinJvmConventionPlugin"
             displayName = "Kotlin JVM Convention Plugin"
             description = "Applies common Kotlin/JVM conventions (stdlib, serialization, test libs, JDK toolchain, etc.)."
         }
