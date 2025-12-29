@@ -7,8 +7,7 @@ dependencyResolutionManagement {
     }
 }
 
-includeBuild("build-logic/kotlin-jvm-convention")
-includeBuild("build-logic/ktlint-convention")
+includeBuild("build-logic")
 
 include(
     ":kotlinrestify-annotations",

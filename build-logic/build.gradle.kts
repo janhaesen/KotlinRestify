@@ -2,6 +2,7 @@ plugins {
     `kotlin-dsl`
     `java-gradle-plugin`
     `maven-publish`
+    alias(libs.plugins.ktlint.gradle.plugin)
 }
 
 group = "io.github.aeshen"
@@ -20,16 +21,33 @@ dependencies {
 
     implementation(libs.findLibrary("kotlin.gradle.plugin").get())
     implementation(libs.findLibrary("kotlin.serialization").get())
+    implementation(libs.findLibrary("kotlin.stdlib").get())
 
     implementation(libs.findLibrary("kotlinx.coroutines").get())
     implementation(libs.findLibrary("kotlinx.serialization").get())
     implementation(libs.findLibrary("kotlinx.serialization.json").get())
+
     implementation(libs.findLibrary("ksp.api").get())
     implementation(libs.findLibrary("ksp.gradle.plugin").get())
+
+    implementation(libs.findLibrary("ktlint.gradle").get())
+    implementation(libs.findLibrary("detekt.gradle.plugin").get())
 }
 
 gradlePlugin {
     plugins {
+        create("ktlintConvention") {
+            id = "ktlint-convention"
+            implementationClass = "io.github.aeshen.KtlintConventionPlugin"
+            displayName = "Ktlint Convention Plugin"
+            description = "Applies org.jlleitschuh.gradle.ktlint with project‑wide defaults."
+        }
+        create("detektConvention") {
+            id = "detekt-convention"
+            implementationClass = "io.github.aeshen.DetektConventionPlugin"
+            displayName = "Detekt Convention Plugin"
+            description = "Applies Detekt configuration for clean code."
+        }
         create("kotlinJvmConvention") {
             id = "kotlin-jvm-convention"
             implementationClass = "io.github.aeshen.KotlinJvmConventionPlugin"
@@ -38,22 +56,3 @@ gradlePlugin {
         }
     }
 }
-
-//publishing {
-//    publications {
-//        create<MavenPublication>("pluginMaven") {
-//            // The `components["java"]` component contains the compiled plugin JAR
-//            from(components["java"])
-//            // Maven coordinates – you can change these as you wish
-//            groupId = project.group.toString()
-//            artifactId = "kotlin-jvm-convention-plugin"
-//            version = project.version.toString()
-//        }
-//    }
-//
-//    // Example: publish to the local Maven cache (so other builds on the same
-//    // machine can resolve it with `mavenLocal()`). Remove if you don’t need it.
-//    repositories {
-//        mavenLocal()
-//    }
-//}

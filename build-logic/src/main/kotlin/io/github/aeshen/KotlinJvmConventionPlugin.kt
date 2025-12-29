@@ -36,6 +36,8 @@ class KotlinJvmConventionPlugin : Plugin<Project> {
                 .named("libs")
 
             pluginManager.apply(KotlinPluginWrapper::class.java)
+            pluginManager.apply(KtlintConventionPlugin::class.java)
+            pluginManager.apply(DetektConventionPlugin::class.java)
             pluginManager.apply("org.jetbrains.kotlin.plugin.serialization")
             pluginManager.apply("com.google.devtools.ksp")
 

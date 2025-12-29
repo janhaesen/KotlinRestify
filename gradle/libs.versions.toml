@@ -10,6 +10,7 @@ ksp = "2.3.4"
 kotlinpoet = "2.2.0"
 ktlint = "1.8.0"
 ktlint-gradle = "14.0.1"
+detekt = "2.0.0-alpha.1"
 
 [libraries]
 # Kotlin
@@ -38,6 +39,11 @@ kotlin-test-junit5 = { module = "org.jetbrains.kotlin:kotlin-test-junit5", versi
 # KtLint
 ktlint-core = { module = "com.pinterest.ktlint:ktlint-core", version.ref = "ktlint" }
 ktlint-gradle = { module = "org.jlleitschuh.gradle:ktlint-gradle", version.ref = "ktlint-gradle" }
+
+# Detekt
+detekt-api = { module = "dev.detekt:detekt-api", version.ref = "detekt" }
+detekt-core = { module = "dev.detekt:detekt-core", version.ref = "detekt" }
+detekt-gradle-plugin = { module = "dev.detekt:detekt-gradle-plugin", version.ref = "detekt" }
 
 [bundles]
 

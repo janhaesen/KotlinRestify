@@ -21,7 +21,7 @@ import com.squareup.kotlinpoet.TypeSpec
 import com.squareup.kotlinpoet.ksp.toTypeName
 
 class RestProcessor(
-    private val env: SymbolProcessorEnvironment,
+    env: SymbolProcessorEnvironment,
     private val generatedPackage: String,
 ) : SymbolProcessor {
     private val logger: KSPLogger = env.logger
@@ -71,19 +71,25 @@ class RestProcessor(
     // 2️⃣  Main processing entry point – this is where the Resolver is supplied.
     // -------------------------------------------------------------------------
     override fun process(resolver: Resolver): List<KSAnnotated> {
-        // Initialise the annotation KSType references (only once)
         initTypes(resolver)
 
-        // Guard against a broken setup – if any of the annotation types are missing,
-        // we cannot continue.
-        if (restEndpointType == null) {
-            logger.error("Unable to locate RestEndpoint annotation. Did you forget to add the annotations module?")
+        if (!validateSetup()) {
             return emptyList()
         }
 
-        // -----------------------------------------------------------------
-        // 3️⃣  Find every function annotated with @RestEndpoint
-        // -----------------------------------------------------------------
+        processEndpoints(resolver)
+        return emptyList()
+    }
+
+    private fun validateSetup(): Boolean =
+        if (restEndpointType == null) {
+            logger.error("Unable to locate RestEndpoint annotation. Did you forget to add the annotations module?")
+            false
+        } else {
+            true
+        }
+
+    private fun processEndpoints(resolver: Resolver) {
         val endpointFunctions =
             resolver
                 .getSymbolsWithAnnotation(
@@ -91,24 +97,17 @@ class RestProcessor(
                 ).filterIsInstance<KSFunctionDeclaration>()
 
         if (!endpointFunctions.iterator().hasNext()) {
-            // Nothing to generate – return empty list to indicate we’re done.
-            return emptyList()
+            return
         }
 
-        // -----------------------------------------------------------------
-        // 4️⃣  Group by the containing class / file (so we generate one client per group)
-        // -----------------------------------------------------------------
         val groups =
             endpointFunctions.groupBy { fn ->
                 fn.parentDeclaration?.qualifiedName?.asString() ?: "<top‑level>"
             }
 
         groups.forEach { (containerName, functions) ->
-            generateClient(containerName, functions, resolver)
+            generateClient(containerName, functions)
         }
-
-        // Returning an empty list tells KSP we have processed everything.
-        return emptyList()
     }
 
     // -------------------------------------------------------------------------
@@ -117,7 +116,6 @@ class RestProcessor(
     private fun generateClient(
         containerName: String,
         functions: List<KSFunctionDeclaration>,
-        resolver: Resolver,
     ) {
         // Name of the generated client class (e.g. `UserServiceClient`)
         val clientClassName = "${containerName.substringAfterLast('.')}Client"
@@ -155,7 +153,7 @@ class RestProcessor(
         // 5.2  For each annotated function, generate a suspend wrapper that calls the HttpClient
         // -----------------------------------------------------------------
         functions.forEach { fn ->
-            generateFunctionStub(fn, resolver)?.let { clientClass.addFunction(it) }
+            generateFunctionStub(fn)?.let { clientClass.addFunction(it) }
         }
 
         fileBuilder.addType(clientClass.build())
@@ -180,40 +178,82 @@ class RestProcessor(
     // -------------------------------------------------------------------------
     // 6️⃣  Transform a single KSFunctionDeclaration into a KotlinPoet FunSpec
     // -------------------------------------------------------------------------
-    private fun generateFunctionStub(
-        fn: KSFunctionDeclaration,
-        resolver: Resolver,
-    ): FunSpec? {
-        // -----------------------------------------------------------------
-        // 6.1  Grab the @RestEndpoint annotation and its arguments
-        // -----------------------------------------------------------------
+    private fun generateFunctionStub(fn: KSFunctionDeclaration): FunSpec? {
+        val endpointConfig = extractEndpointConfiguration(fn) ?: return null
+        val parameterAnalysis = analyzeParameters(fn)
+
+        return buildFunctionSpec(fn, endpointConfig, parameterAnalysis)
+    }
+
+    private data class EndpointConfiguration(
+        val httpMethod: String,
+        val rawPath: String,
+    )
+
+    private fun extractEndpointConfiguration(fn: KSFunctionDeclaration): EndpointConfiguration? {
         val endpointAnno =
             fn.annotations.firstOrNull {
                 it.shortName.asString() == "RestEndpoint"
             } ?: return null
 
-        // Extract `method` (enum) and `path` (String) from the annotation
         val methodArg = endpointAnno.arguments.first { it.name?.asString() == "method" }
         val pathArg = endpointAnno.arguments.first { it.name?.asString() == "path" }
 
-        // `method` is stored as a KSName that points to the enum constant (e.g. GET)
         val httpMethod = (methodArg.value as KSName).getShortName()
         val rawPath = pathArg.value as String
 
-        // -----------------------------------------------------------------
-        // 6.2  Prepare the function signature (copy parameters & return type)
-        // -----------------------------------------------------------------
+        return EndpointConfiguration(httpMethod, rawPath)
+    }
+
+    private data class ParameterAnalysis(
+        val pathParams: List<KSValueParameter>,
+        val queryParams: List<Pair<String, KSValueParameter>>,
+        val bodyParam: KSValueParameter?,
+    )
+
+    private fun analyzeParameters(fn: KSFunctionDeclaration): ParameterAnalysis {
+        val queryParams = mutableListOf<Pair<String, KSValueParameter>>()
+        val pathParams = mutableListOf<KSValueParameter>()
+        var bodyParam: KSValueParameter? = null
+
+        fn.parameters.forEach { param ->
+            when {
+                param.hasAnnotation("QueryParam") -> {
+                    val qpAnno = param.annotations.first { it.shortName.asString() == "QueryParam" }
+                    val nameArg = qpAnno.arguments.first { it.name?.asString() == "name" }.value as String
+                    queryParams.add(nameArg to param)
+                }
+
+                param.hasAnnotation("Body") -> {
+                    bodyParam = param
+                }
+
+                else -> {
+                    pathParams.add(param)
+                }
+            }
+        }
+
+        return ParameterAnalysis(pathParams, queryParams, bodyParam)
+    }
+
+    private fun KSValueParameter.hasAnnotation(name: String): Boolean =
+        annotations.any { it.shortName.asString() == name }
+
+    private fun buildFunctionSpec(
+        fn: KSFunctionDeclaration,
+        config: EndpointConfiguration,
+        params: ParameterAnalysis,
+    ): FunSpec {
         val funBuilder =
             FunSpec
                 .builder(fn.simpleName.asString())
                 .addModifiers(KModifier.SUSPEND)
 
-        // Return type (if any)
         fn.returnType?.let { ret ->
             funBuilder.returns(ret.toTypeName())
         }
 
-        // Copy all parameters (we’ll later decide which are path/query/body)
         fn.parameters.forEach { param ->
             funBuilder.addParameter(
                 param.name?.asString() ?: "param",
@@ -221,92 +261,59 @@ class RestProcessor(
             )
         }
 
-        // -----------------------------------------------------------------
-        // 6.3  Analyse parameters: path vars, @QueryParam, @Body
-        // -----------------------------------------------------------------
-        val queryParams = mutableListOf<Pair<String, KSValueParameter>>()
-        var bodyParam: KSValueParameter? = null
+        val urlExpression = buildUrlExpression(config.rawPath, params)
+        val httpCall = buildHttpCall(config.httpMethod, urlExpression, params.bodyParam)
 
-        fn.parameters.forEach { param ->
-            when {
-                param.annotations.any { it.shortName.asString() == "QueryParam" } -> {
-                    val qpAnno = param.annotations.first { it.shortName.asString() == "QueryParam" }
-                    val nameArg = qpAnno.arguments.first { it.name?.asString() == "name" }.value as String
-                    queryParams.add(nameArg to param)
-                }
+        funBuilder.addStatement("return $httpCall")
+        return funBuilder.build()
+    }
 
-                param.annotations.any { it.shortName.asString() == "Body" } -> {
-                    bodyParam = param
-                }
-
-                else -> {
-                    // Unannotated parameters are assumed to be **path variables**
-                    // (e.g. function foo(id: String) -> path "/users/{id}")
-                }
-            }
-        }
-
-        // -----------------------------------------------------------------
-        // 6.4  Build the request URL (replace `{var}` placeholders + query string)
-        // -----------------------------------------------------------------
+    private fun buildUrlExpression(
+        rawPath: String,
+        params: ParameterAnalysis,
+    ): String {
         var urlExpression = "\"$rawPath\""
 
-        // Replace `{name}` placeholders with Kotlin string interpolation
-        fn.parameters
-            .filter { p ->
-                p.annotations.none { it.shortName.asString() in listOf("QueryParam", "Body") }
-            }.forEach { p ->
-                val placeholder = "{${p.name?.asString()}}"
-                urlExpression = urlExpression.replace(placeholder, "\${${p.name?.asString()}}")
-            }
+        // Replace path variable placeholders
+        params.pathParams.forEach { param ->
+            val placeholder = "{${param.name?.asString()}}"
+            urlExpression = urlExpression.replace(placeholder, "\${${param.name?.asString()}}")
+        }
 
-        // Append query parameters if any
-        if (queryParams.isNotEmpty()) {
+        // Append query parameters
+        if (params.queryParams.isNotEmpty()) {
             val qpString =
-                queryParams.joinToString("&") { (name, param) ->
+                params.queryParams.joinToString("&") { (name, param) ->
                     "$name=\${${param.name?.asString()}}"
                 }
             urlExpression = "\"${'$'}{$urlExpression}?$qpString\""
         }
 
-        // -----------------------------------------------------------------
-        // 6.5  Emit the call to the injected HttpClient
-        // -----------------------------------------------------------------
-        val httpCall =
-            when (httpMethod) {
-                "GET" -> {
-                    "http.get($urlExpression)"
-                }
+        return urlExpression
+    }
 
-                "POST" -> {
-                    val bodyExpr = bodyParam?.let { "${it.name?.asString()}" } ?: "null"
-                    "http.post($urlExpression, $bodyExpr)"
-                }
-
-                "PUT" -> {
-                    val bodyExpr = bodyParam?.let { "${it.name?.asString()}" } ?: "null"
-                    "http.put($urlExpression, $bodyExpr)"
-                }
-
-                "PATCH" -> {
-                    val bodyExpr = bodyParam?.let { "${it.name?.asString()}" } ?: "null"
-                    "http.patch($urlExpression, $bodyExpr)"
-                }
-
-                "DELETE" -> {
-                    "http.delete($urlExpression)"
-                }
-
-                else -> {
-                    logger.error("Unsupported HTTP method $httpMethod on ${fn.qualifiedName?.asString()}")
-                    return null
-                }
+    private fun buildHttpCall(
+        httpMethod: String,
+        urlExpression: String,
+        bodyParam: KSValueParameter?,
+    ): String? =
+        when (httpMethod) {
+            "GET" -> {
+                "http.get($urlExpression)"
             }
 
-        // -----------------------------------------------------------------
-        // 6.6  Return the result (the generated function mirrors the original return type)
-        // -----------------------------------------------------------------
-        funBuilder.addStatement("return $httpCall")
-        return funBuilder.build()
-    }
+            "DELETE" -> {
+                "http.delete($urlExpression)"
+            }
+
+            "POST", "PUT", "PATCH" -> {
+                val bodyExpr = bodyParam?.let { "${it.name?.asString()}" } ?: "null"
+                "http.${httpMethod.lowercase()}($urlExpression, $bodyExpr)"
+            }
+
+            else -> {
+                logger.error("Unsupported HTTP method $httpMethod")
+                null
+            }
+        }
 }
