@@ -10,5 +10,5 @@ package io.github.aeshen.restify.annotation
 @Retention(AnnotationRetention.SOURCE)
 annotation class QueryParam(
     val name: String,
-    val required: Boolean = true
+    val required: Boolean = true,
 )

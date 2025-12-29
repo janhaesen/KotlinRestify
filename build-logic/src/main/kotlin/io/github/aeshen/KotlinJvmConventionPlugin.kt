@@ -1,5 +1,6 @@
 package io.github.aeshen
 
+import dev.detekt.gradle.Detekt
 import org.gradle.api.Plugin
 import org.gradle.api.Project
 import org.gradle.api.artifacts.VersionCatalog
@@ -13,6 +14,7 @@ import org.gradle.kotlin.dsl.dependencies
 import org.gradle.kotlin.dsl.getByType
 import org.gradle.kotlin.dsl.repositories
 import org.gradle.kotlin.dsl.withType
+import org.gradle.language.base.plugins.LifecycleBasePlugin
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.dsl.KotlinJvmProjectExtension
 import org.jetbrains.kotlin.gradle.dsl.KotlinVersion
@@ -32,108 +34,125 @@ import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 class KotlinJvmConventionPlugin : Plugin<Project> {
     override fun apply(target: Project) {
         with(target) {
-            val libs = extensions.getByType<VersionCatalogsExtension>()
-                .named("libs")
+            val libs = extensions.getByType<VersionCatalogsExtension>().named("libs")
 
-            pluginManager.apply(KotlinPluginWrapper::class.java)
-            pluginManager.apply(KtlintConventionPlugin::class.java)
-            pluginManager.apply(DetektConventionPlugin::class.java)
-            pluginManager.apply("org.jetbrains.kotlin.plugin.serialization")
-            pluginManager.apply("com.google.devtools.ksp")
+            // Delegate to smaller helpers to keep this method concise.
+            applyPluginsAndRepos(this)
+            configureDependencies(this, libs)
+            configureKspArgs(this)
+            configureKotlinExtension(this, libs)
+            configureTaskTypes(this)
+            registerAggregatorAndConvenienceTasks(this)
+        }
+    }
 
-            repositories {
-                mavenCentral()
-                mavenLocal()
-            }
+    private fun applyPluginsAndRepos(project: Project) = with(project) {
+        pluginManager.apply(KotlinPluginWrapper::class.java)
+        pluginManager.apply(KtlintConventionPlugin::class.java)
+        pluginManager.apply(DetektConventionPlugin::class.java)
+        pluginManager.apply("org.jetbrains.kotlin.plugin.serialization")
+        pluginManager.apply("com.google.devtools.ksp")
 
-            dependencies {
-                // Kotlin stdlib (JVM)
-                add("implementation", libs.findLibrary("kotlin.stdlib").get())
+        repositories {
+            mavenCentral()
+            mavenLocal()
+        }
+    }
 
-                // Serialization (JSON) – used by many modules
-                add("implementation", libs.findLibrary("kotlinx.serialization").get())
-                add("implementation", libs.findLibrary("kotlinx.serialization.json").get())
+    private fun configureDependencies(project: Project, libs: VersionCatalog) = with(project) {
+        dependencies {
+            // Kotlin stdlib (JVM)
+            add("implementation", libs.findLibrary("kotlin.stdlib").get())
 
-                // Coroutines – handy for async HTTP, DB, etc.
-                add("implementation", libs.findLibrary("kotlinx.coroutines").get())
+            // Serialization (JSON)
+            add("implementation", libs.findLibrary("kotlinx.serialization").get())
+            add("implementation", libs.findLibrary("kotlinx.serialization.json").get())
 
-                // Test libraries (JUnit 5 + Kotlin test)
-                add("testImplementation", libs.findLibrary("kotlin.test").get())
-                add("testImplementation", "org.junit.jupiter:junit-jupiter:5.10.2")
+            // Coroutines
+            add("implementation", libs.findLibrary("kotlinx.coroutines").get())
 
-                // `ksp` configuration is added by the KSP Gradle plugin.
-                // Because the convention plugin runs after the `plugins {}` block, the
-                // `ksp` configuration already exists.
-                // add("ksp", "io.github.aeshen:kotlinrestify-processor:0.1.0")
-            }
+            // Test libraries (JUnit 5 + Kotlin test)
+            add("testImplementation", libs.findLibrary("kotlin.test").get())
+            add("testImplementation", "org.junit.jupiter:junit-jupiter:5.10.2")
+        }
+    }
 
-            // Expose the generated package name as a compiler argument
-            // (allows downstream projects to override it if they wish)
-            extensions.configure<com.google.devtools.ksp.gradle.KspExtension> {
-                arg("restify.generatedPackage", "io.github.aeshen.restify.generated")
-            }
+    private fun configureKspArgs(project: Project) = with(project) {
+        extensions.configure<com.google.devtools.ksp.gradle.KspExtension> {
+            arg("restify.generatedPackage", "io.github.aeshen.restify.generated")
+        }
+    }
 
-            val javaVersionTarget = JvmTarget.fromTarget(findVersion(libs, "java"))
-            val kotlinLangVersionEnum = KotlinVersion.fromVersion(findVersion(libs, "kotlinLang"))
+    private fun configureKotlinExtension(project: Project, libs: VersionCatalog) = with(project) {
+        val javaVersionTarget = JvmTarget.fromTarget(findVersion(libs, "java"))
+        val kotlinLangVersionEnum = KotlinVersion.fromVersion(findVersion(libs, "kotlinLang"))
 
-            extensions.configure<KotlinJvmProjectExtension> {
-                compilerOptions {
-                    jvmTarget.set(javaVersionTarget)
-                    languageVersion.set(kotlinLangVersionEnum)
-                    apiVersion.set(kotlinLangVersionEnum)
+        extensions.configure<KotlinJvmProjectExtension> {
+            compilerOptions {
+                jvmTarget.set(javaVersionTarget)
+                languageVersion.set(kotlinLangVersionEnum)
+                apiVersion.set(kotlinLangVersionEnum)
 
-                    allWarningsAsErrors.set(false)
+                allWarningsAsErrors.set(false)
 
-                    freeCompilerArgs.addAll(
-                        listOf(
-                            // • Progressive mode – enables newer language features early.
-                            //   (Deprecated after Kotlin 1.8, but still works for older releases.)
-                            "-progressive",
-                            "-Xjsr305=strict",
-
-                            // • Enable explicit API mode – forces public APIs to be declared
-                            //   with explicit visibility/modality/return types.
-                            // "-Xexplicit-api=strict"
-
-                            // • Opt‑in to experimental APIs (e.g., coroutines preview)
-                            // "-Xopt-in=kotlin.RequiresOptIn"
-
-                            // • Enable IR backend (usually default for Kotlin 1.5+)
-                            // "-Xuse-ir"
-
-                            // • Suppress specific warnings (use sparingly)
-                            // "-Xsuppress-warnings=UNUSED_PARAMETER"
-
-                            // • Enable inline classes (value classes warnings as errors
-                            // "-Xerror-inline-classes"
-
-                            // • Turn on the new type inference algorithm (experimental)
-                            // "-Xnew-inference"
-
-                            // • Enable the new JVM default methods handling
-                            // "-Xjvm-default=all"   // or "compatibility"
-
-                            // • Enable the Kotlin/JS IR backend (if you also compile JS)
-                            // "-Xir-js"
-
-                            // • Enable the Kotlin/Native memory model (experimental)
-                            // "-Xmemory-model=experimental"
-                        )
+                freeCompilerArgs.addAll(
+                    listOf(
+                        "-progressive",
+                        "-Xjsr305=strict"
                     )
-                }
+                )
+            }
 
-                jvmToolchain {
-                    languageVersion.set(JavaLanguageVersion.of(javaVersionTarget.asInt()))
-                    vendor.set(JvmVendorSpec.ADOPTIUM)
+            jvmToolchain {
+                languageVersion.set(JavaLanguageVersion.of(javaVersionTarget.asInt()))
+                vendor.set(JvmVendorSpec.ADOPTIUM)
+            }
+        }
+    }
+
+    private fun configureTaskTypes(project: Project) = with(project) {
+        tasks.withType<Test>().configureEach {
+            useJUnitPlatform()
+        }
+
+        tasks.withType<KotlinCompile>().configureEach {
+            incremental = true
+        }
+    }
+
+    private fun registerAggregatorAndConvenienceTasks(project: Project) = with(project) {
+        // Always ensure the root project has the aggregator tasks. Guard with findByName to avoid
+        // registering the same task multiple times if the plugin is applied in multiple projects.
+        rootProject.run {
+            if (tasks.findByName("verifyAll") == null) {
+                tasks.register("verifyAll") {
+                    group = LifecycleBasePlugin.VERIFICATION_GROUP
+                    description = "Run ktlint and detekt checks across all projects that apply the Kotlin JVM convention."
+
+                    dependsOn(subprojects.map { p -> p.tasks.matching { it.name == "verifyAll" } })
+                    dependsOn(tasks.matching { it.name == "ktlintCheck" })
+                    dependsOn(tasks.withType<Detekt>())
                 }
             }
 
-            tasks.withType<Test>().configureEach {
-                useJUnitPlatform()
-            }
+            if (tasks.findByName("ktlintFormatAll") == null) {
+                tasks.register("ktlintFormatAll") {
+                    group = LifecycleBasePlugin.VERIFICATION_GROUP
+                    description = "Run ktlintFormat across all projects that apply the Kotlin JVM convention."
 
-            tasks.withType<KotlinCompile>().configureEach {
-                incremental = true
+                    dependsOn(subprojects.map { p -> p.tasks.matching { it.name == "ktlintFormat" } })
+                    dependsOn(tasks.matching { it.name == "ktlintFormat" })
+                }
+            }
+        }
+
+        // Per-project convenience task for non-root projects
+        if (project != rootProject) {
+            tasks.register("verifyAll") {
+                group = LifecycleBasePlugin.VERIFICATION_GROUP
+                description = "Run ktlint and detekt checks for this project."
+                dependsOn(tasks.named("ktlintCheck"))
+                dependsOn(tasks.withType<Detekt>())
             }
         }
     }
@@ -141,12 +160,12 @@ class KotlinJvmConventionPlugin : Plugin<Project> {
     private fun findVersion(libs: VersionCatalog, name: String): String = libs.findVersion(name)
         .orElseThrow { IllegalStateException("Version '$name' missing in libs.versions.toml") }
         .requiredVersion
-}
 
-private fun JvmTarget.asInt(): Int = when (this) {
-    JvmTarget.JVM_1_8 -> 8
-    JvmTarget.JVM_11  -> 11
-    JvmTarget.JVM_17  -> 17
-    JvmTarget.JVM_21  -> 21
-    else -> throw IllegalArgumentException("Unsupported java version \"$this\"")
+    private fun JvmTarget.asInt(): Int = when (this) {
+        JvmTarget.JVM_1_8 -> 8
+        JvmTarget.JVM_11  -> 11
+        JvmTarget.JVM_17  -> 17
+        JvmTarget.JVM_21  -> 21
+        else -> throw IllegalArgumentException("Unsupported java version \"$this\"")
+    }
 }

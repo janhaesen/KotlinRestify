@@ -12,5 +12,5 @@ package io.github.aeshen.restify.annotation
 annotation class RestEndpoint(
     val method: HttpMethod,
     val path: String,
-    val description: String = ""
+    val description: String = "",
 )

@@ -10,5 +10,5 @@ enum class HttpMethod {
     PATCH,
     DELETE,
     HEAD,
-    OPTIONS
+    OPTIONS,
 }
