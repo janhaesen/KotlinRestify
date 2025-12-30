@@ -7,7 +7,6 @@ import io.github.aeshen.restify.annotation.RestEndpoint
 @RestEndpoint(
     path = "/users",
     description = "User endpoint",
-    method = HttpMethod.GET,
 )
 class TestApi {
     @HttpGet("/users")
