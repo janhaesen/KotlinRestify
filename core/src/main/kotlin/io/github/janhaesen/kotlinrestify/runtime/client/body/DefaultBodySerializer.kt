@@ -22,11 +22,15 @@ object DefaultBodySerializer : BodySerializer {
 
             is String -> SerializedBody(body, contentType ?: "application/json")
 
-            is Number, is Boolean, is Char -> SerializedBody(body.toString(), contentType ?: "text/plain")
+            is Number,
+            is Boolean,
+            is Char,
+            -> SerializedBody(body.toString(), contentType ?: "text/plain")
 
             else -> throw IllegalArgumentException(
                 "Unsupported body type `${body::class}` for DefaultBodySerializer. " +
-                    "Provide a custom BodySerializer via ApiConfig.bodySerializer to serialize DTOs to JSON or another media type.",
+                    "Provide a custom BodySerializer via ApiConfig.bodySerializer to serialize DTOs to JSON or " +
+                    "another media type.",
             )
         }
     }

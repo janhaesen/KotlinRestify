@@ -14,12 +14,11 @@ class KtorGeneratedApiCaller(
         request: RequestData,
         mapper: ResponseMapper<T>,
     ): T {
-        val execute = suspend { adapter.execute(request, config) }
         val response =
             if (config.retryPolicy != null) {
-                config.retryPolicy!!.retry { execute() }
+                config.retryPolicy!!.retry { adapter.execute(request, config) }
             } else {
-                execute()
+                adapter.execute(request, config)
             }
         return mapper.map(response)
     }

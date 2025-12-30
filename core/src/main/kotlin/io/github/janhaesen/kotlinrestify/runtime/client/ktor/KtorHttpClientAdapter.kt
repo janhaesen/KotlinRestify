@@ -75,7 +75,8 @@ class KtorHttpClientAdapter(
 
                     else -> {
                         error(
-                            "Unsupported serialized payload type: ${payload::class}. BodySerializer must return String or ByteArray.",
+                            "Unsupported serialized payload type: ${payload::class}. BodySerializer must return " +
+                                "String or ByteArray.",
                         )
                     }
                 }
