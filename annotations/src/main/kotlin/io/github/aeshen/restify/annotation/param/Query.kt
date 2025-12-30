@@ -1,4 +1,4 @@
-package io.github.aeshen.restify.annotation
+package io.github.aeshen.restify.annotation.param
 
 /**
  * Declares a function parameter as a query‑parameter.

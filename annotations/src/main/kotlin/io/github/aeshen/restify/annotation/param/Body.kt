@@ -1,4 +1,4 @@
-package io.github.aeshen.restify.annotation
+package io.github.aeshen.restify.annotation.param
 
 /**
  * Marks a parameter as the HTTP request body.

@@ -13,7 +13,7 @@ import com.squareup.kotlinpoet.ParameterSpec
 import com.squareup.kotlinpoet.PropertySpec
 import com.squareup.kotlinpoet.TypeSpec
 import com.squareup.kotlinpoet.ksp.toTypeName
-import io.github.aeshen.restify.annotation.HttpMethod
+import io.github.aeshen.restify.annotation.http.HttpMethod
 
 class ClientGenerator(
     private val codeGenerator: CodeGenerator,

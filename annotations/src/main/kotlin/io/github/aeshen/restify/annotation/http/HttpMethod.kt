@@ -1,4 +1,4 @@
-package io.github.aeshen.restify.annotation
+package io.github.aeshen.restify.annotation.http
 
 /**
  * HTTP verb that the endpoint uses.

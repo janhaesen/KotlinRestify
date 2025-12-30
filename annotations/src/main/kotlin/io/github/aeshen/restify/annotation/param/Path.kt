@@ -1,7 +1,7 @@
-package io.github.aeshen.restify.annotation
+package io.github.aeshen.restify.annotation.param
 
 @Target(AnnotationTarget.VALUE_PARAMETER)
 @Retention(AnnotationRetention.SOURCE)
-annotation class Header(
+annotation class Path(
     val name: String,
 )

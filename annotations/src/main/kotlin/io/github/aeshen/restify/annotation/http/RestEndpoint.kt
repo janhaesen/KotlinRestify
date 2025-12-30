@@ -1,4 +1,4 @@
-package io.github.aeshen.restify.annotation
+package io.github.aeshen.restify.annotation.http
 
 /**
  * Marks a function (or an interface) as a REST endpoint definition.
