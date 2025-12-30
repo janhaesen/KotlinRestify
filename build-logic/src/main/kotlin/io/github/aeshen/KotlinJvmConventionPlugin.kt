@@ -87,6 +87,9 @@ class KotlinJvmConventionPlugin : Plugin<Project> {
         val javaVersionTarget = JvmTarget.fromTarget(findVersion(libs, "java"))
         val kotlinLangVersionEnum = KotlinVersion.fromVersion(findVersion(libs, "kotlinLang"))
 
+        group = "io.github.aeshen.restify"
+        version = "0.1.0"
+
         extensions.configure<KotlinJvmProjectExtension> {
             compilerOptions {
                 jvmTarget.set(javaVersionTarget)

@@ -5,7 +5,11 @@ dependencyResolutionManagement {
     }
     versionCatalogs {
         create("libs") {
-            from(files("../gradle/libs.versions.toml"))
+            from(
+                files(
+                    settingsDir.resolve("../gradle/libs.versions.toml")
+                )
+            )
         }
     }
 }

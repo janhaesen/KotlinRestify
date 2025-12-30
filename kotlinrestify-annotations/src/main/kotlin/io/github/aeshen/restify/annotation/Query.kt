@@ -8,7 +8,7 @@ package io.github.aeshen.restify.annotation
  */
 @Target(AnnotationTarget.VALUE_PARAMETER)
 @Retention(AnnotationRetention.SOURCE)
-annotation class QueryParam(
+annotation class Query(
     val name: String,
     val required: Boolean = true,
 )

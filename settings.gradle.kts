@@ -3,6 +3,7 @@ rootProject.name = "kotlin-restify"
 dependencyResolutionManagement {
     repositories {
         gradlePluginPortal()
+        mavenLocal()
         mavenCentral()
     }
 }

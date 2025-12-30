@@ -12,6 +12,10 @@ dependencies {
 
     implementation(libs.kotlin.poet)
     implementation(libs.kotlin.poet.ksp)
+
+    testImplementation(libs.kotlin.test)
+    testImplementation(libs.kotlin.test.junit5)
+    testImplementation(gradleTestKit())
 }
 
 // Export the processor as a KSP symbol processor

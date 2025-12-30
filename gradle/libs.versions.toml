@@ -1,16 +1,17 @@
 [versions]
 java = "21"
 kotlin = "2.3.0"
-kotlinLang = "2.0"
+kotlinLang = "2.3"
 kotlinx-coroutines = "1.10.2"
 kotlinx-serialization = "1.9.0"
 resilience4j = "2.1.0"
 junit5 = "6.0.1"
 ksp = "2.3.4"
-kotlinpoet = "2.2.0"
+kotlin-poet = "2.2.0"
 ktlint = "1.8.0"
 ktlint-gradle = "14.0.1"
 detekt = "2.0.0-alpha.1"
+kotlin-compile-testing = "1.6.0"
 
 [libraries]
 # Kotlin
@@ -29,8 +30,8 @@ kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serializa
 ksp-api = { module = "com.google.devtools.ksp:symbol-processing-api", version.ref = "ksp" }
 ksp-gradle-plugin = { module = "com.google.devtools.ksp:symbol-processing-gradle-plugin", version.ref = "ksp" }
 
-kotlin-poet = { module = "com.squareup:kotlinpoet", version.ref = "kotlinpoet" }
-kotlin-poet-ksp = { module = "com.squareup:kotlinpoet-ksp", version.ref = "kotlinpoet" }
+kotlin-poet = { module = "com.squareup:kotlinpoet", version.ref = "kotlin-poet" }
+kotlin-poet-ksp = { module = "com.squareup:kotlinpoet-ksp", version.ref = "kotlin-poet" }
 
 # Test
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
