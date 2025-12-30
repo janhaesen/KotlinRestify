@@ -8,12 +8,10 @@ import com.google.devtools.ksp.symbol.KSAnnotated
 class RestProcessor(
     private val env: SymbolProcessorEnvironment,
     private val generatedPackage: String,
+    private val types: AnnotationTypeResolver = AnnotationTypeResolver(),
+    private val analyzer: EndpointAnalyzer = EndpointAnalyzer(),
+    private val generator: ClientGenerator = ClientGenerator(env.codeGenerator, env.logger, generatedPackage),
 ) : SymbolProcessor {
-    private val types = AnnotationTypeResolver()
-    private val analyzer = EndpointAnalyzer()
-    private val generator =
-        ClientGenerator(env.codeGenerator, env.logger, generatedPackage)
-
     override fun process(resolver: Resolver): List<KSAnnotated> {
         types.init(resolver)
         if (!types.isValid(env.logger)) {

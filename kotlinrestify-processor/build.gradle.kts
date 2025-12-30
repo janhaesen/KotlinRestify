@@ -3,6 +3,7 @@ plugins {
     id("ktlint-convention")
 
     alias(libs.plugins.ksp)
+    id("local-publish-convention")
 }
 
 dependencies {

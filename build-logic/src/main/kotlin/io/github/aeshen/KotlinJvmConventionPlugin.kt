@@ -73,7 +73,8 @@ class KotlinJvmConventionPlugin : Plugin<Project> {
 
             // Test libraries (JUnit 5 + Kotlin test)
             add("testImplementation", libs.findLibrary("kotlin.test").get())
-            add("testImplementation", "org.junit.jupiter:junit-jupiter:5.10.2")
+            add("testImplementation", libs.findLibrary("junit5-jupiter").get())
+            add("testImplementation", libs.findLibrary("mockk").get())
         }
     }
 

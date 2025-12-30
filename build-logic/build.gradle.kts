@@ -16,6 +16,12 @@ repositories {
 val libs: VersionCatalog = extensions.getByType<VersionCatalogsExtension>().named("libs")
     ?: throw IllegalArgumentException("No libs configured")
 
+kotlin {
+    jvmToolchain {
+        languageVersion.set(JavaLanguageVersion.of(21))
+    }
+}
+
 dependencies {
     implementation(gradleApi())
 
@@ -53,6 +59,13 @@ gradlePlugin {
             implementationClass = "io.github.aeshen.KotlinJvmConventionPlugin"
             displayName = "Kotlin JVM Convention Plugin"
             description = "Applies common Kotlin/JVM conventions (stdlib, serialization, test libs, JDK toolchain, etc.)."
+        }
+        // new central publish convention plugin
+        create("localPublishConvention") {
+            id = "local-publish-convention"
+            implementationClass = "io.github.aeshen.LocalPublishConventionPlugin"
+            displayName = "Local Publish Convention"
+            description = "Configures maven-publish (single publication from components['java']), sources/javadoc jars and mavenLocal repository."
         }
     }
 }
