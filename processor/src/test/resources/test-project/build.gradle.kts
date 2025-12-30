@@ -8,5 +8,5 @@ repositories {
 }
 
 dependencies {
-    ksp("io.github.aeshen.restify:kotlinrestify-annotations") // resolved via includeBuild
+    ksp("io.github.aeshen.restify:annotations") // resolved via includeBuild
 }

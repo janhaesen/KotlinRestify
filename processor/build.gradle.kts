@@ -7,7 +7,7 @@ plugins {
 }
 
 dependencies {
-    implementation(project(":kotlinrestify-annotations"))
+    implementation(project(":annotations"))
 
     implementation(libs.ksp.api)
 
