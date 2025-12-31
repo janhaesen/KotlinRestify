@@ -1,11 +1,11 @@
-package io.github.janhaesen.kotlinrestify.runtime.client.ktor
+package io.github.aeshen.kotlinrestify.runtime.client.ktor
 
-import io.github.janhaesen.kotlinrestify.runtime.ApiConfig
-import io.github.janhaesen.kotlinrestify.runtime.RequestData
-import io.github.janhaesen.kotlinrestify.runtime.ResponseData
-import io.github.janhaesen.kotlinrestify.runtime.client.HttpClientAdapter
-import io.github.janhaesen.kotlinrestify.runtime.client.body.DefaultBodySerializer
-import io.github.janhaesen.kotlinrestify.runtime.client.body.SerializedBody
+import io.github.aeshen.kotlinrestify.runtime.ApiConfig
+import io.github.aeshen.kotlinrestify.runtime.RequestData
+import io.github.aeshen.kotlinrestify.runtime.ResponseData
+import io.github.aeshen.kotlinrestify.runtime.client.HttpClientAdapter
+import io.github.aeshen.kotlinrestify.runtime.client.body.DefaultBodySerializer
+import io.github.aeshen.kotlinrestify.runtime.client.body.SerializedBody
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.cio.CIO
 import io.ktor.client.plugins.HttpTimeout

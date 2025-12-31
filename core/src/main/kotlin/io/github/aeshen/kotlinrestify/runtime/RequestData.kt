@@ -1,4 +1,4 @@
-package io.github.janhaesen.kotlinrestify.runtime
+package io.github.aeshen.kotlinrestify.runtime
 
 import io.github.aeshen.restify.annotation.http.HttpMethod
 import io.github.aeshen.restify.annotation.http.MediaType

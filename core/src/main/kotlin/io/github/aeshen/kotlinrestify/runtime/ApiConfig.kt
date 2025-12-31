@@ -1,6 +1,6 @@
-package io.github.janhaesen.kotlinrestify.runtime
+package io.github.aeshen.kotlinrestify.runtime
 
-import io.github.janhaesen.kotlinrestify.runtime.client.body.BodySerializer
+import io.github.aeshen.kotlinrestify.runtime.client.body.BodySerializer
 
 data class ApiConfig(
     var baseUrl: String,

@@ -3,6 +3,7 @@ package io.github.aeshen.restify.processor
 import com.google.devtools.ksp.processing.KSPLogger
 import com.google.devtools.ksp.symbol.KSAnnotation
 import com.google.devtools.ksp.symbol.KSFunctionDeclaration
+import com.google.devtools.ksp.symbol.KSType
 import com.google.devtools.ksp.symbol.KSValueParameter
 import com.google.devtools.ksp.symbol.Nullability
 
@@ -22,36 +23,34 @@ class EndpointAnalyzer {
 
     /**
      * Analyze function and return Endpoint or null if not an endpoint.
-     * This variant requires the resolved annotation types from AnnotationTypeResolver so we avoid
-     * fragile shortName checks.
+     * This variant requires the resolved annotation types view (non-nullable) from AnnotationTypeResolver.
      */
     fun analyze(
         fn: KSFunctionDeclaration,
-        types: AnnotationTypeResolver,
+        types: AnnotationTypeResolver.ResolvedAnnotationTypes,
     ): Endpoint? {
-        // find RestEndpoint annotation by declaration equality (prefer declaration comparators over strings)
-        val endpointAnno =
+        // find an HTTP method annotation on the function (resolved via AnnotationTypeResolver)
+        val methodAnno =
             fn.annotations.firstOrNull { ann ->
-                types.restEndpoint?.declaration == ann.annotationType.resolve().declaration
+                types.httpMethodAnnos.values.any { it.declaration == ann.annotationType.resolve().declaration }
             } ?: return null
 
-        // read method/path safely from annotation arguments
-        val method =
-            endpointAnno.arguments
-                .firstOrNull { it.name?.asString() == "method" }
-                ?.value
-                ?.toString()
-                ?: "GET"
-        val path =
-            endpointAnno.arguments.firstOrNull { it.name?.asString() == "path" }?.value as? String
-                ?: "/"
+        // determine the HTTP method key (e.g. "GET", "POST") by matching declaration equality
+        val annoDecl = methodAnno.annotationType.resolve().declaration
+        val methodKey =
+            types.httpMethodAnnos.entries
+                .firstOrNull { it.value.declaration == annoDecl }
+                ?.key ?: "GET"
 
-        return Endpoint(fn, method, path, analyzeParams(fn, types))
+        // read path safely from the HTTP method annotation (fallback to "/" when absent)
+        val path = methodAnno.getStringArg("path") ?: "/"
+
+        return Endpoint(fn, methodKey, path, analyzeParams(fn, types))
     }
 
     private fun analyzeParams(
         fn: KSFunctionDeclaration,
-        types: AnnotationTypeResolver,
+        types: AnnotationTypeResolver.ResolvedAnnotationTypes,
     ): ParameterAnalysis {
         val pathParams = mutableListOf<KSValueParameter>()
         val queryParams = mutableListOf<Pair<String, KSValueParameter>>()
@@ -60,15 +59,15 @@ class EndpointAnalyzer {
         fn.parameters.forEach { p ->
             // prefer declaration-equality checks via helper functions
             when {
-                types.bodyAnno != null && hasAnnotation(p, types.bodyAnno!!) -> {
+                types.bodyAnno != null && hasAnnotation(p, types.bodyAnno) -> {
                     bodyParam = p
                 }
 
-                types.pathAnno != null && hasAnnotation(p, types.pathAnno!!) -> {
+                types.pathAnno != null && hasAnnotation(p, types.pathAnno) -> {
                     pathParams += p
                 }
 
-                (types.queryAnno != null && hasAnnotation(p, types.queryAnno!!)) -> {
+                (types.queryAnno != null && hasAnnotation(p, types.queryAnno)) -> {
                     // determine query parameter name: annotation 'name' argument if present, else parameter name
                     val ann = firstMatchingAnnotation(p, listOfNotNull(types.queryAnno))
                     val name = ann?.getStringArg("name") ?: p.name?.asString() ?: "param"
@@ -86,16 +85,16 @@ class EndpointAnalyzer {
         return ParameterAnalysis(pathParams, queryParams, bodyParam)
     }
 
-    // Helpers ---------------------------------------------------------------
-
     private fun hasAnnotation(
         param: KSValueParameter,
-        kstype: com.google.devtools.ksp.symbol.KSType,
-    ): Boolean = param.annotations.any { ann -> ann.annotationType.resolve().declaration == kstype.declaration }
+        ksType: KSType?,
+    ): Boolean =
+        ksType != null &&
+            param.annotations.any { ann -> ann.annotationType.resolve().declaration == ksType.declaration }
 
     private fun firstMatchingAnnotation(
         param: KSValueParameter,
-        candidates: List<com.google.devtools.ksp.symbol.KSType>,
+        candidates: List<KSType>,
     ): KSAnnotation? =
         param.annotations.firstOrNull { ann ->
             val decl = ann.annotationType.resolve().declaration
@@ -107,18 +106,19 @@ class EndpointAnalyzer {
 
     private fun KSAnnotation.getBooleanArg(name: String): Boolean? =
         this.arguments.firstOrNull { it.name?.asString() == name }?.value as? Boolean
+}
 
+/**
+ * Single-responsibility validator that enforces endpoint-level correctness rules.
+ * Keeps validation separate from analysis so rules can be extended/covered independently.
+ */
+class EndpointValidator {
     /**
-     * Validates an analyzed endpoint according to a few rules:
-     * - At most one @Body per endpoint (multiple bodies are invalid)
-     * - @Query(required=true) parameters must be non-nullable
-     * - Path placeholders in the endpoint path must match @Path parameters
-     *
-     * Emits errors via provided logger. Returns true if endpoint is valid.
+     * Returns true when endpoint is valid; emits errors through logger when not.
      */
     fun validate(
-        endpoint: Endpoint,
-        types: AnnotationTypeResolver,
+        endpoint: EndpointAnalyzer.Endpoint,
+        types: AnnotationTypeResolver.ResolvedAnnotationTypes,
         logger: KSPLogger,
     ): Boolean {
         var ok = true
@@ -127,7 +127,7 @@ class EndpointAnalyzer {
         // Body count check: more than one is invalid
         val bodyCount =
             endpoint.function.parameters.count { p ->
-                types.bodyAnno?.let { hasAnnotation(p, it) } ?: false
+                types.bodyAnno?.let { paramHasAnnotation(p, it) } ?: false
             }
         if (bodyCount > 1) {
             logger.error("Endpoint $fnName has more than one @Body parameter; exactly one is allowed")
@@ -181,4 +181,25 @@ class EndpointAnalyzer {
 
         return ok
     }
+
+    // small reuse helpers (similar to analyzer but kept here to avoid analyzer dependency)
+    private fun paramHasAnnotation(
+        param: KSValueParameter,
+        ksType: KSType,
+    ): Boolean = param.annotations.any { ann -> ann.annotationType.resolve().declaration == ksType.declaration }
+
+    private fun firstMatchingAnnotation(
+        param: KSValueParameter,
+        candidates: List<KSType>,
+    ): KSAnnotation? =
+        param.annotations.firstOrNull { ann ->
+            val decl = ann.annotationType.resolve().declaration
+            candidates.any { it.declaration == decl }
+        }
+
+    private fun KSAnnotation.getStringArg(name: String): String? =
+        this.arguments.firstOrNull { it.name?.asString() == name }?.value as? String
+
+    private fun KSAnnotation.getBooleanArg(name: String): Boolean? =
+        this.arguments.firstOrNull { it.name?.asString() == name }?.value as? Boolean
 }

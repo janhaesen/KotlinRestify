@@ -1,10 +1,10 @@
-package io.github.janhaesen.kotlinrestify.runtime.client
+package io.github.aeshen.kotlinrestify.runtime.client
 
-import io.github.janhaesen.kotlinrestify.runtime.ApiConfig
-import io.github.janhaesen.kotlinrestify.runtime.GeneratedApiCaller
-import io.github.janhaesen.kotlinrestify.runtime.TimeBoundRetryPolicy
-import io.github.janhaesen.kotlinrestify.runtime.client.ktor.KtorGeneratedApiCaller
-import io.github.janhaesen.kotlinrestify.runtime.client.ktor.KtorHttpClientAdapter
+import io.github.aeshen.kotlinrestify.runtime.ApiConfig
+import io.github.aeshen.kotlinrestify.runtime.GeneratedApiCaller
+import io.github.aeshen.kotlinrestify.runtime.TimeBoundRetryPolicy
+import io.github.aeshen.kotlinrestify.runtime.client.ktor.KtorGeneratedApiCaller
+import io.github.aeshen.kotlinrestify.runtime.client.ktor.KtorHttpClientAdapter
 
 /**
  * Default entrypoint — uses the Ktor-based implementation under the hood.

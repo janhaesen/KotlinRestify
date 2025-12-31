@@ -1,4 +1,4 @@
-package io.github.janhaesen.kotlinrestify.runtime
+package io.github.aeshen.kotlinrestify.runtime
 
 data class ResponseData(
     val statusCode: Int,

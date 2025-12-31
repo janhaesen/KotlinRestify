@@ -1,4 +1,4 @@
-package io.github.janhaesen.kotlinrestify.runtime
+package io.github.aeshen.kotlinrestify.runtime
 
 /** High-level contract used by generated stubs to perform requests. */
 interface GeneratedApiCaller {

@@ -10,6 +10,7 @@ class RestProcessorProvider : SymbolProcessorProvider {
         val generatedPkg =
             environment.options["restify.generatedPackage"]
                 ?: "io.github.aeshen.restify.generated"
+        environment.logger.info("RestProcessor will generate code into package: $generatedPkg")
         return RestProcessor(environment, generatedPkg)
     }
 }

@@ -14,22 +14,26 @@ class RestProcessor(
 ) : SymbolProcessor {
     override fun process(resolver: Resolver): List<KSAnnotated> {
         types.init(resolver)
-        if (!types.isValid(env.logger)) {
-            return emptyList()
-        }
 
-        val groups =
-            EndpointSymbolFinder(types.restEndpoint!!)
-                .find(resolver)
+        val resolvedTypes =
+            types.requireResolvedTypes(env.logger)
+                // requireResolvedTypes already logged an error
+                ?: return emptyList()
+
+        // Prefer the non-nullable ResolvedAnnotationTypes constructor so the finder doesn't need to re-check.
+        // Backwards compatibility is preserved because EndpointSymbolFinder still exposes the old constructor.
+        val groups = EndpointSymbolFinder(resolvedTypes).find(resolver)
+        env.logger.info("Found ${groups.size} endpoint container(s) with annotated functions")
+
+        val validator = EndpointValidator()
 
         groups.forEach { (container, functions) ->
-            val endpoints =
-                functions.mapNotNull { analyzer.analyze(it, types) }
+            val endpoints = functions.mapNotNull { analyzer.analyze(it, resolvedTypes) }
+            env.logger.info("Found ${endpoints.size} endpoints in container $container")
 
-            // validate each endpoint and only generate for valid ones
             val validEndpoints =
                 endpoints.filter { ep ->
-                    val ok = analyzer.validate(ep, types, env.logger)
+                    val ok = validator.validate(ep, resolvedTypes, env.logger)
                     if (!ok) {
                         env.logger.error("Skipping generation for container $container due to validation errors")
                     }

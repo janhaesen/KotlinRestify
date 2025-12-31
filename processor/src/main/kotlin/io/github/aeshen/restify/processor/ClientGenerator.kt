@@ -4,7 +4,9 @@ import com.google.devtools.ksp.processing.CodeGenerator
 import com.google.devtools.ksp.processing.Dependencies
 import com.google.devtools.ksp.processing.KSPLogger
 import com.google.devtools.ksp.symbol.KSFile
+import com.google.devtools.ksp.symbol.KSTypeReference
 import com.google.devtools.ksp.symbol.KSValueParameter
+import com.google.devtools.ksp.symbol.Nullability
 import com.squareup.kotlinpoet.AnnotationSpec
 import com.squareup.kotlinpoet.ClassName
 import com.squareup.kotlinpoet.FileSpec
@@ -12,6 +14,7 @@ import com.squareup.kotlinpoet.FunSpec
 import com.squareup.kotlinpoet.KModifier
 import com.squareup.kotlinpoet.ParameterSpec
 import com.squareup.kotlinpoet.PropertySpec
+import com.squareup.kotlinpoet.TypeName
 import com.squareup.kotlinpoet.TypeSpec
 import com.squareup.kotlinpoet.ksp.toTypeName
 import io.github.aeshen.restify.annotation.http.HttpMethod
@@ -36,7 +39,7 @@ class ClientGenerator(
             ParameterSpec
                 .builder(
                     "http",
-                    ClassName("io.github.aeshen.restify.http", "HttpClient"),
+                    ClassName("io.github.aeshen.kotlinrestify.runtime.client", "HttpClient"),
                 ).build()
 
         val clientClassBuilder =
@@ -46,7 +49,7 @@ class ClientGenerator(
                 .addAnnotation(
                     AnnotationSpec
                         .builder(
-                            ClassName("javax.annotation", "Generated"),
+                            ClassName("javax.annotation.processing", "Generated"),
                         ).addMember("%S", "KotlinRestifyProcessor")
                         .build(),
                 ).primaryConstructor(
@@ -84,14 +87,17 @@ class ClientGenerator(
                 .builder(fn.simpleName.asString())
                 .addModifiers(KModifier.SUSPEND)
 
-        fn.returnType?.let {
-            funBuilder.returns(it.toTypeName())
+        // safe return-type conversion (guard against KSP 'error type' during incremental rounds)
+        fn.returnType?.let { rt ->
+            val returnTypeName = safeToTypeName(rt)
+            funBuilder.returns(returnTypeName)
         }
 
         fn.parameters.forEach { param ->
+            val paramType = safeToTypeName(param.type)
             funBuilder.addParameter(
                 param.name?.asString() ?: "param",
-                param.type.toTypeName(),
+                paramType,
             )
         }
 
@@ -110,33 +116,48 @@ class ClientGenerator(
         return funBuilder.build()
     }
 
+    // Build URL expression using concatenation to avoid escaping template syntax.
+    // Example: "/users/{id}/photos" -> "\"/users/\" + id + \"/photos\""
     private fun buildUrlExpression(
         rawPath: String,
         params: EndpointAnalyzer.ParameterAnalysis,
     ): String {
-        var urlExpr = "\"$rawPath\""
+        val placeholderRegex = "\\{([^}/]+)\\}".toRegex()
+        var lastIndex = 0
+        val parts = mutableListOf<String>()
 
-        // Replace path variables: "/users/{id}" -> "/users/${id}"
-        params.path.forEach { param ->
-            val name = param.name?.asString() ?: return@forEach
-            urlExpr =
-                urlExpr.replace(
-                    "{$name}",
-                    $$"${$$name}",
-                )
+        for (m in placeholderRegex.findAll(rawPath)) {
+            val start = m.range.first
+            val end = m.range.last + 1
+            val literal = rawPath.substring(lastIndex, start)
+            if (literal.isNotEmpty()) {
+                parts += "\"${literal}\""
+            }
+            val name = m.groupValues[1]
+            parts += name // parameter insertion (unquoted)
+            lastIndex = end
         }
 
-        // Append query parameters
+        val tail = rawPath.substring(lastIndex)
+        if (tail.isNotEmpty()) {
+            parts += "\"${tail}\""
+        }
+
+        var expr = if (parts.isEmpty()) "\"$rawPath\"" else parts.joinToString(" + ")
+
+        // Append query parameters using concatenation: ?a= + param
         if (params.query.isNotEmpty()) {
-            val queryString =
-                params.query.joinToString("&") { (name, param) ->
-                    $$"$$name=${$${param.name?.asString()}}"
+            val qsParts =
+                params.query.mapIndexed { idx, (name, param) ->
+                    val paramExpr = param.name?.asString() ?: "param$idx"
+                    val prefix = if (idx == 0) "\"?$name=\" + $paramExpr" else "\"&$name=\" + $paramExpr"
+                    prefix
                 }
-
-            urlExpr = $$"\"${$$urlExpr}?$$queryString\""
+            // join queries with " + " and append to expr
+            expr = if (expr.isBlank()) qsParts.joinToString(" + ") else "$expr + ${qsParts.joinToString(" + ")}"
         }
 
-        return urlExpr
+        return expr
     }
 
     private fun buildHttpCall(
@@ -189,5 +210,28 @@ class ClientGenerator(
             .use { writer ->
                 fileSpec.writeTo(writer)
             }
+    }
+
+    // Safe conversion helper: try KSP->TypeName conversion, fall back to ClassName.bestGuess or kotlin.Any
+    private fun safeToTypeName(typeRef: KSTypeReference?): TypeName {
+        if (typeRef == null) return ClassName("kotlin", "Unit")
+        return try {
+            typeRef.toTypeName()
+        } catch (_: IllegalArgumentException) {
+            // unresolved / error type — try to recover using declaration FQN
+            val resolved =
+                try {
+                    typeRef.resolve()
+                } catch (_: Exception) {
+                    null
+                }
+            val fqn = resolved?.declaration?.qualifiedName?.asString()
+            val base = if (!fqn.isNullOrBlank()) ClassName.bestGuess(fqn) else ClassName("kotlin", "Any")
+            if (resolved?.nullability == Nullability.NULLABLE) {
+                base.copy(nullable = true)
+            } else {
+                base
+            }
+        }
     }
 }
