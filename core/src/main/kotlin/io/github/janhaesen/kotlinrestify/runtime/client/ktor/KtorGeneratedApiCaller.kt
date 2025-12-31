@@ -15,11 +15,8 @@ class KtorGeneratedApiCaller(
         mapper: ResponseMapper<T>,
     ): T {
         val response =
-            if (config.retryPolicy != null) {
-                config.retryPolicy!!.retry { adapter.execute(request, config) }
-            } else {
-                adapter.execute(request, config)
-            }
+            config.retryPolicy?.retry { adapter.execute(request, config) }
+                ?: adapter.execute(request, config)
         return mapper.map(response)
     }
 }

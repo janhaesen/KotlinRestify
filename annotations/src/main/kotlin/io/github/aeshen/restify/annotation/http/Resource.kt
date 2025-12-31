@@ -6,9 +6,9 @@ package io.github.aeshen.restify.annotation.http
  * @param path     Relative path, e.g. "/users/{id}"
  * @param description optional human‑readable description (used for OpenAPI generation)
  */
-@Target(AnnotationTarget.FUNCTION, AnnotationTarget.CLASS)
+@Target(AnnotationTarget.CLASS)
 @Retention(AnnotationRetention.SOURCE)
-annotation class RestEndpoint(
+annotation class Resource(
     val path: String,
     val description: String = "",
 )

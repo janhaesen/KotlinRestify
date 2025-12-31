@@ -21,5 +21,6 @@ dependencies {
 
 // Export the processor as a KSP symbol processor
 ksp {
+    arg("ksp.incremental", "true")
     arg("restify.generatedPackage", "io.github.aeshen.restify.generated")
 }

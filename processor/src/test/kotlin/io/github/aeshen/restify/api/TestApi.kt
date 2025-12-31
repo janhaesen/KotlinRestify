@@ -1,9 +1,9 @@
 package io.github.aeshen.restify.api
 
 import io.github.aeshen.restify.annotation.http.HttpGet
-import io.github.aeshen.restify.annotation.http.RestEndpoint
+import io.github.aeshen.restify.annotation.http.Resource
 
-@RestEndpoint(
+@Resource(
     path = "/users",
     description = "User endpoint",
 )

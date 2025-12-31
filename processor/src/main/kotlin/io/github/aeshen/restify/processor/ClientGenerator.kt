@@ -5,6 +5,7 @@ import com.google.devtools.ksp.processing.Dependencies
 import com.google.devtools.ksp.processing.KSPLogger
 import com.google.devtools.ksp.symbol.KSFile
 import com.google.devtools.ksp.symbol.KSValueParameter
+import com.squareup.kotlinpoet.AnnotationSpec
 import com.squareup.kotlinpoet.ClassName
 import com.squareup.kotlinpoet.FileSpec
 import com.squareup.kotlinpoet.FunSpec
@@ -30,17 +31,25 @@ class ClientGenerator(
         val fileBuilder =
             FileSpec.builder(generatedPackage, clientClassName)
 
+        // Corrected package FQN (fixed typo: io.github.ashen -> io.github.aeshen)
         val httpClientParam =
             ParameterSpec
                 .builder(
                     "http",
-                    ClassName("io.github.ashen.restify.http", "HttpClient"),
+                    ClassName("io.github.aeshen.restify.http", "HttpClient"),
                 ).build()
 
-        val clientClass =
+        val clientClassBuilder =
             TypeSpec
                 .classBuilder(clientClassName)
-                .primaryConstructor(
+                // annotate generated class for tooling and consumers
+                .addAnnotation(
+                    AnnotationSpec
+                        .builder(
+                            ClassName("javax.annotation", "Generated"),
+                        ).addMember("%S", "KotlinRestifyProcessor")
+                        .build(),
+                ).primaryConstructor(
                     FunSpec
                         .constructorBuilder()
                         .addParameter(httpClientParam)
@@ -54,10 +63,10 @@ class ClientGenerator(
                 )
 
         endpoints.forEach { endpoint ->
-            clientClass.addFunction(buildFunction(endpoint))
+            clientClassBuilder.addFunction(buildFunction(endpoint))
         }
 
-        fileBuilder.addType(clientClass.build())
+        fileBuilder.addType(clientClassBuilder.build())
 
         writeFile(
             fileBuilder.build(),
@@ -113,7 +122,7 @@ class ClientGenerator(
             urlExpr =
                 urlExpr.replace(
                     "{$name}",
-                    "\${$name}",
+                    $$"${$$name}",
                 )
         }
 
@@ -121,10 +130,10 @@ class ClientGenerator(
         if (params.query.isNotEmpty()) {
             val queryString =
                 params.query.joinToString("&") { (name, param) ->
-                    "$name=\${${param.name?.asString()}}"
+                    $$"$$name=${$${param.name?.asString()}}"
                 }
 
-            urlExpr = "\"${'$'}{$urlExpr}?$queryString\""
+            urlExpr = $$"\"${$$urlExpr}?$$queryString\""
         }
 
         return urlExpr
@@ -163,10 +172,12 @@ class ClientGenerator(
         fileSpec: FileSpec,
         sourceFiles: List<KSFile>,
     ) {
+        // guard empty sourceFiles and prefer aggregating=true for broader incremental correctness
+        val srcs = sourceFiles.toTypedArray()
         val deps =
             Dependencies(
-                aggregating = false,
-                *sourceFiles.toTypedArray(),
+                aggregating = true,
+                *srcs,
             )
 
         codeGenerator

@@ -24,10 +24,20 @@ class RestProcessor(
 
         groups.forEach { (container, functions) ->
             val endpoints =
-                functions.mapNotNull { analyzer.analyze(it) }
+                functions.mapNotNull { analyzer.analyze(it, types) }
 
-            if (endpoints.isNotEmpty()) {
-                generator.generate(container, endpoints)
+            // validate each endpoint and only generate for valid ones
+            val validEndpoints =
+                endpoints.filter { ep ->
+                    val ok = analyzer.validate(ep, types, env.logger)
+                    if (!ok) {
+                        env.logger.error("Skipping generation for container $container due to validation errors")
+                    }
+                    ok
+                }
+
+            if (validEndpoints.isNotEmpty()) {
+                generator.generate(container, validEndpoints)
             }
         }
 
