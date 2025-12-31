@@ -547,17 +547,17 @@ style:
     AlsoCouldBeApply:
         active: false
     BracesOnIfStatements:
-        active: false
-        singleLine: 'never'
+        active: true
+        singleLine: 'always'
         multiLine: 'always'
     BracesOnWhenStatements:
-        active: false
+        active: true
         singleLine: 'necessary'
         multiLine: 'consistent'
     CanBeNonNullable:
         active: false
     CascadingCallWrapping:
-        active: false
+        active: true
         includeElvis: true
     ClassOrdering:
         active: false
