@@ -10,7 +10,8 @@ class RestProcessor(
     private val generatedPackage: String,
     private val types: AnnotationTypeResolver = AnnotationTypeResolver(),
     private val analyzer: EndpointAnalyzer = EndpointAnalyzer(),
-    private val generator: ClientGenerator = ClientGenerator(env.codeGenerator, env.logger, generatedPackage),
+    private val generator: ClientGenerator =
+        ClientGenerator(env.codeGenerator, env.logger, generatedPackage),
 ) : SymbolProcessor {
     override fun process(resolver: Resolver): List<KSAnnotated> {
         types.init(resolver)
@@ -35,7 +36,9 @@ class RestProcessor(
                 endpoints.filter { ep ->
                     val ok = validator.validate(ep, resolvedTypes, env.logger)
                     if (!ok) {
-                        env.logger.error("Skipping generation for container $container due to validation errors")
+                        env.logger.error(
+                            "Skipping generation for container $container due to validation errors",
+                        )
                     }
                     ok
                 }

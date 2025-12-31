@@ -150,11 +150,23 @@ class ClientGenerator(
             val qsParts =
                 params.query.mapIndexed { idx, (name, param) ->
                     val paramExpr = param.name?.asString() ?: "param$idx"
-                    val prefix = if (idx == 0) "\"?$name=\" + $paramExpr" else "\"&$name=\" + $paramExpr"
+                    val prefix =
+                        if (idx == 0) {
+                            "\"?$name=\" + $paramExpr"
+                        } else {
+                            "\"&$name=\" + $paramExpr"
+                        }
                     prefix
                 }
             // join queries with " + " and append to expr
-            expr = if (expr.isBlank()) qsParts.joinToString(" + ") else "$expr + ${qsParts.joinToString(" + ")}"
+            expr =
+                if (expr.isBlank()) {
+                    qsParts.joinToString(
+                        " + ",
+                    )
+                } else {
+                    "$expr + ${qsParts.joinToString(" + ")}"
+                }
         }
 
         return expr
@@ -226,7 +238,14 @@ class ClientGenerator(
                     null
                 }
             val fqn = resolved?.declaration?.qualifiedName?.asString()
-            val base = if (!fqn.isNullOrBlank()) ClassName.bestGuess(fqn) else ClassName("kotlin", "Any")
+            val base =
+                if (!fqn.isNullOrBlank()) {
+                    ClassName.bestGuess(
+                        fqn,
+                    )
+                } else {
+                    ClassName("kotlin", "Any")
+                }
             if (resolved?.nullability == Nullability.NULLABLE) {
                 base.copy(nullable = true)
             } else {

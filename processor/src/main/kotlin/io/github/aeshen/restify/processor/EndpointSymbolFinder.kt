@@ -42,7 +42,9 @@ class EndpointSymbolFinder(
                     cls
                         .getDeclaredFunctions()
                         .filter { fn ->
-                            fn.annotations.any { ann -> methodDecls.contains(ann.annotationType.resolve().declaration) }
+                            fn.annotations.any { ann ->
+                                methodDecls.contains(ann.annotationType.resolve().declaration)
+                            }
                         }.toList()
 
                 if (functions.isNotEmpty()) {

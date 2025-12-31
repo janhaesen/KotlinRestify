@@ -83,7 +83,11 @@ class KtorHttpClientAdapter(
             }
 
         val respBytes = httpResponse.readRawBytes()
-        val respHeaders = httpResponse.headers.entries().associate { it.key to it.value.joinToString(",") }
+        val respHeaders =
+            httpResponse.headers.entries().associate {
+                it.key to
+                    it.value.joinToString(",")
+            }
         return ResponseData(
             statusCode = httpResponse.status.value,
             headers = respHeaders,
@@ -116,7 +120,11 @@ class KtorHttpClientAdapter(
         val sb = StringBuilder(baseTrimmed).append(pathPrefix)
         if (query.isNotEmpty()) {
             sb.append("?")
-            sb.append(query.entries.joinToString("&") { (k, v) -> "${encodeComponent(k)}=${encodeComponent(v)}" })
+            sb.append(
+                query.entries.joinToString(
+                    "&",
+                ) { (k, v) -> "${encodeComponent(k)}=${encodeComponent(v)}" },
+            )
         }
         return sb.toString()
     }

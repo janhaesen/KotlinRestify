@@ -36,15 +36,20 @@ class AnnotationTypeResolver {
         // resolve Resource (canonical)
         restEndpointInternal =
             resolver
-                .getClassDeclarationByName(resolver.getKSNameFromString(Resource::class.qualifiedName ?: return))
-                ?.asStarProjectedType()
+                .getClassDeclarationByName(
+                    resolver.getKSNameFromString(Resource::class.qualifiedName ?: return),
+                )?.asStarProjectedType()
 
         val restDecl = restEndpointInternal?.declaration
         val resolvedPackage = restDecl?.packageName?.asString().orEmpty()
         val annotationRoot =
             when {
                 resolvedPackage.endsWith(".http") -> resolvedPackage.removeSuffix(".http")
-                resolvedPackage.endsWith(".annotation.http") -> resolvedPackage.removeSuffix(".http")
+
+                resolvedPackage.endsWith(
+                    ".annotation.http",
+                ) -> resolvedPackage.removeSuffix(".http")
+
                 else -> resolvedPackage
             }
 
@@ -80,10 +85,18 @@ class AnnotationTypeResolver {
         ).forEach { (key, directCandidates) ->
             val extra =
                 annotationRoot.ifBlank { null }?.let {
-                    listOf("$it.http.Http${key.replaceFirstChar { c -> c.uppercase(Locale.getDefault()) }}")
+                    listOf(
+                        "$it.http.Http${key.replaceFirstChar { c ->
+                            c.uppercase(Locale.getDefault())
+                        }}",
+                    )
                 } ?: emptyList()
             val resolved =
-                resolveAny(resolver, *(directCandidates.filterNotNull().toTypedArray()), *extra.toTypedArray())
+                resolveAny(
+                    resolver,
+                    *(directCandidates.filterNotNull().toTypedArray()),
+                    *extra.toTypedArray(),
+                )
             if (resolved != null) httpMethodAnnosInternal[key] = resolved
         }
     }
