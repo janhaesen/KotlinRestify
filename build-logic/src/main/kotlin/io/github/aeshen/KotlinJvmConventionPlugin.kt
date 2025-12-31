@@ -54,8 +54,8 @@ class KotlinJvmConventionPlugin : Plugin<Project> {
         pluginManager.apply("com.google.devtools.ksp")
 
         repositories {
-            mavenCentral()
             mavenLocal()
+            mavenCentral()
         }
     }
 

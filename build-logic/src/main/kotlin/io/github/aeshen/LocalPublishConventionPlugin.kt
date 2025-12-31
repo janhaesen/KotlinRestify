@@ -42,7 +42,7 @@ class LocalPublishConventionPlugin : Plugin<Project> {
                         artifact(sourcesJar.get())
                         artifact(javadocJar.get())
                         groupId = defaultGroup
-                        artifactId = name
+                        artifactId = project.name
                         version = defaultVersion
                     }
                 }
