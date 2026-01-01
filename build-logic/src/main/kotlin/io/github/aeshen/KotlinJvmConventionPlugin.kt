@@ -47,6 +47,7 @@ class KotlinJvmConventionPlugin : Plugin<Project> {
     }
 
     private fun applyPluginsAndRepos(project: Project) = with(project) {
+        pluginManager.apply(DependencyRulesPlugin::class.java)
         pluginManager.apply(KotlinPluginWrapper::class.java)
         pluginManager.apply(KtlintConventionPlugin::class.java)
         pluginManager.apply(DetektConventionPlugin::class.java)

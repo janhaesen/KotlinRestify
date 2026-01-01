@@ -60,12 +60,17 @@ gradlePlugin {
             displayName = "Kotlin JVM Convention Plugin"
             description = "Applies common Kotlin/JVM conventions (stdlib, serialization, test libs, JDK toolchain, etc.)."
         }
-        // new central publish convention plugin
         create("localPublishConvention") {
             id = "local-publish-convention"
             implementationClass = "io.github.aeshen.LocalPublishConventionPlugin"
             displayName = "Local Publish Convention"
             description = "Configures maven-publish (single publication from components['java']), sources/javadoc jars and mavenLocal repository."
+        }
+        create("dependencyRulesConvention") {
+            id = "dependency-rules-convention"
+            implementationClass = "io.github.aeshen.DependencyRulesPlugin"
+            displayName = "Dependency rule Convention"
+            description = "Ensure non compliant dependencies are reported and have the build fail."
         }
     }
 }
