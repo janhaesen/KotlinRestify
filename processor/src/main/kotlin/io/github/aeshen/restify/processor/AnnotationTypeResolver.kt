@@ -5,6 +5,7 @@ import com.google.devtools.ksp.processing.Resolver
 import com.google.devtools.ksp.symbol.KSType
 import io.github.aeshen.restify.annotation.http.HttpDelete
 import io.github.aeshen.restify.annotation.http.HttpGet
+import io.github.aeshen.restify.annotation.http.HttpMethod
 import io.github.aeshen.restify.annotation.http.HttpPatch
 import io.github.aeshen.restify.annotation.http.HttpPost
 import io.github.aeshen.restify.annotation.http.HttpPut
@@ -22,12 +23,8 @@ class AnnotationTypeResolver {
     private var queryAnnoInternal: KSType? = null
     private var pathAnnoInternal: KSType? = null
 
-    private val httpMethodAnnosInternal: MutableMap<String, KSType> = mutableMapOf()
+    private val httpMethodAnnosInternal: MutableMap<HttpMethod, KSType> = mutableMapOf()
 
-    /**
-     * Initialize resolution. Idempotent. Prefer direct class references and only fall back
-     * to a single annotation-root variant when necessary.
-     */
     fun init(resolver: Resolver) {
         if (restEndpointInternal != null) {
             return
@@ -42,18 +39,8 @@ class AnnotationTypeResolver {
 
         val restDecl = restEndpointInternal?.declaration
         val resolvedPackage = restDecl?.packageName?.asString().orEmpty()
-        val annotationRoot =
-            when {
-                resolvedPackage.endsWith(".http") -> resolvedPackage.removeSuffix(".http")
+        val annotationRoot = determineAnnotationRoot(resolvedPackage)
 
-                resolvedPackage.endsWith(
-                    ".annotation.http",
-                ) -> resolvedPackage.removeSuffix(".http")
-
-                else -> resolvedPackage
-            }
-
-        // prefer direct class qnames, fall back to a single derived candidate if needed
         bodyAnnoInternal =
             resolveAny(
                 resolver,
@@ -75,19 +62,18 @@ class AnnotationTypeResolver {
                 annotationRoot.ifBlank { null }?.let { "$it.param.Path" },
             )
 
-        // HTTP methods: prefer direct, minimal fallback
         listOf(
-            "GET" to listOf(HttpGet::class.qualifiedName),
-            "POST" to listOf(HttpPost::class.qualifiedName),
-            "PUT" to listOf(HttpPut::class.qualifiedName),
-            "DELETE" to listOf(HttpDelete::class.qualifiedName),
-            "PATCH" to listOf(HttpPatch::class.qualifiedName),
+            HttpMethod.GET to listOf(HttpGet::class.qualifiedName),
+            HttpMethod.POST to listOf(HttpPost::class.qualifiedName),
+            HttpMethod.PUT to listOf(HttpPut::class.qualifiedName),
+            HttpMethod.DELETE to listOf(HttpDelete::class.qualifiedName),
+            HttpMethod.PATCH to listOf(HttpPatch::class.qualifiedName),
         ).forEach { (key, directCandidates) ->
             val extra =
                 annotationRoot.ifBlank { null }?.let {
                     listOf(
-                        "$it.http.Http${key.replaceFirstChar { c ->
-                            c.uppercase(Locale.getDefault())
+                        "$it.http.Http${key.name.replaceFirstChar { c ->
+                            c.uppercase(Locale.ROOT)
                         }}",
                     )
                 } ?: emptyList()
@@ -97,11 +83,23 @@ class AnnotationTypeResolver {
                     *(directCandidates.filterNotNull().toTypedArray()),
                     *extra.toTypedArray(),
                 )
-            if (resolved != null) httpMethodAnnosInternal[key] = resolved
+            if (resolved != null) {
+                httpMethodAnnosInternal[key] = resolved
+            }
         }
     }
 
-    // Helper: try candidates in order, return first resolved KSType
+    private fun determineAnnotationRoot(resolvedPackage: String): String =
+        when {
+            resolvedPackage.endsWith(".http") -> resolvedPackage.removeSuffix(".http")
+
+            resolvedPackage.endsWith(
+                ".annotation.http",
+            ) -> resolvedPackage.removeSuffix(".http")
+
+            else -> resolvedPackage
+        }
+
     private fun resolveAny(
         resolver: Resolver,
         vararg candidatesNullable: String?,
@@ -120,29 +118,31 @@ class AnnotationTypeResolver {
         return null
     }
 
-    /**
-     * Typed, non-nullable view of the resolved annotation types.
-     * Consumers should call requireResolvedTypes(logger) after init(...) to obtain this view.
-     */
     data class ResolvedAnnotationTypes(
         val restEndpoint: KSType,
         val bodyAnno: KSType?,
         val queryAnno: KSType?,
         val pathAnno: KSType?,
-        val httpMethodAnnos: Map<String, KSType>,
+        val httpMethodAnnos: Map<HttpMethod, KSType>,
     )
 
-    /**
-     * Return a typed ResolvedAnnotationTypes view or null (and log an error) if essential annotations
-     * are missing.
-     */
     fun requireResolvedTypes(logger: KSPLogger): ResolvedAnnotationTypes? {
         if (restEndpointInternal == null) {
             logger.error(
-                "Required Resource/RestEndpoint annotation not found on processor classpath; ensure your annotations module is available.",
+                "Required Resource/RestEndpoint annotation not found on processor" +
+                    " classpath; ensure your annotations module is available.",
             )
             return null
         }
+
+        if (httpMethodAnnosInternal.isEmpty()) {
+            logger.error(
+                "No HTTP method annotations (e.g. @HttpGet/@HttpPost) were resolved;" +
+                    " ensure your annotations module is available and on the processor classpath.",
+            )
+            return null
+        }
+
         return ResolvedAnnotationTypes(
             restEndpoint = restEndpointInternal!!,
             bodyAnno = bodyAnnoInternal,

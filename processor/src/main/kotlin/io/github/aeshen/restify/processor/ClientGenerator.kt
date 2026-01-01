@@ -5,65 +5,80 @@ import com.google.devtools.ksp.processing.Dependencies
 import com.google.devtools.ksp.processing.KSPLogger
 import com.google.devtools.ksp.symbol.KSFile
 import com.google.devtools.ksp.symbol.KSTypeReference
-import com.google.devtools.ksp.symbol.KSValueParameter
 import com.google.devtools.ksp.symbol.Nullability
 import com.squareup.kotlinpoet.AnnotationSpec
 import com.squareup.kotlinpoet.ClassName
 import com.squareup.kotlinpoet.FileSpec
 import com.squareup.kotlinpoet.FunSpec
 import com.squareup.kotlinpoet.KModifier
+import com.squareup.kotlinpoet.MemberName
 import com.squareup.kotlinpoet.ParameterSpec
+import com.squareup.kotlinpoet.ParameterizedTypeName
 import com.squareup.kotlinpoet.PropertySpec
 import com.squareup.kotlinpoet.TypeName
 import com.squareup.kotlinpoet.TypeSpec
 import com.squareup.kotlinpoet.ksp.toTypeName
-import io.github.aeshen.restify.annotation.http.HttpMethod
+import io.github.aeshen.restify.processor.generator.CallGenerator
+import io.github.aeshen.restify.processor.generator.RUNTIME_PACKAGE
+import io.github.aeshen.restify.processor.generator.collectionRawTypes
 
 class ClientGenerator(
     private val codeGenerator: CodeGenerator,
     private val logger: KSPLogger,
     private val generatedPackage: String,
 ) {
+    companion object {
+        private val WITH_CONTEXT = MemberName("kotlinx.coroutines", "withContext")
+    }
+
     fun generate(
         containerName: String,
         endpoints: List<EndpointAnalyzer.Endpoint>,
     ) {
-        val clientClassName =
-            "${containerName.substringAfterLast('.')}Client"
+        val clientClassName = "${containerName.substringAfterLast('.')}Client"
+        val fileBuilder = FileSpec.builder(generatedPackage, clientClassName)
 
-        val fileBuilder =
-            FileSpec.builder(generatedPackage, clientClassName)
+        val needsNullableImport = hasCollectionType(endpoints)
+        if (needsNullableImport) {
+            fileBuilder.addImport("kotlinx.serialization.builtins", "nullable")
+        }
 
-        // Corrected package FQN (fixed typo: io.github.ashen -> io.github.aeshen)
-        val httpClientParam =
+        // ensure we import the forKotlinx extension with its FQN
+        fileBuilder.addImport("$RUNTIME_PACKAGE.client.body", "forKotlinx")
+
+        val callerParam =
             ParameterSpec
                 .builder(
-                    "http",
-                    ClassName("io.github.aeshen.kotlinrestify.runtime.client", "HttpClient"),
+                    "caller",
+                    ClassName(RUNTIME_PACKAGE, "ApiCaller"),
                 ).build()
 
+        val mapperFactoryParam =
+            ParameterSpec
+                .builder(
+                    "mapperFactory",
+                    ClassName(
+                        "$RUNTIME_PACKAGE.client.body",
+                        "ResponseMapperFactory",
+                    ),
+                ).build()
+
+        val dispatcherParam =
+            ParameterSpec
+                .builder(
+                    "dispatcher",
+                    ClassName("kotlinx.coroutines", "CoroutineDispatcher"),
+                ).defaultValue("%T.IO", ClassName("kotlinx.coroutines", "Dispatchers"))
+                .build()
+
         val clientClassBuilder =
-            TypeSpec
-                .classBuilder(clientClassName)
-                // annotate generated class for tooling and consumers
-                .addAnnotation(
-                    AnnotationSpec
-                        .builder(
-                            ClassName("javax.annotation.processing", "Generated"),
-                        ).addMember("%S", "KotlinRestifyProcessor")
-                        .build(),
-                ).primaryConstructor(
-                    FunSpec
-                        .constructorBuilder()
-                        .addParameter(httpClientParam)
-                        .build(),
-                ).addProperty(
-                    PropertySpec
-                        .builder("http", httpClientParam.type)
-                        .initializer("http")
-                        .addModifiers(KModifier.PRIVATE)
-                        .build(),
-                )
+            createClientClass(
+                clientClassName = clientClassName,
+                callerParam = callerParam,
+                mapperFactoryParam = mapperFactoryParam,
+                dispatcherParam = dispatcherParam,
+                containerName = containerName,
+            )
 
         endpoints.forEach { endpoint ->
             clientClassBuilder.addFunction(buildFunction(endpoint))
@@ -79,139 +94,109 @@ class ClientGenerator(
         logger.info("Generated $generatedPackage.$clientClassName")
     }
 
+    private fun createClientClass(
+        clientClassName: String,
+        callerParam: ParameterSpec,
+        mapperFactoryParam: ParameterSpec,
+        dispatcherParam: ParameterSpec,
+        containerName: String,
+    ): TypeSpec.Builder {
+        val clientClassBuilder =
+            TypeSpec
+                .classBuilder(clientClassName)
+                .addAnnotation(
+                    AnnotationSpec
+                        .builder(ClassName("javax.annotation.processing", "Generated"))
+                        .addMember("%S", "KotlinRestifyProcessor")
+                        .build(),
+                ).primaryConstructor(
+                    FunSpec
+                        .constructorBuilder()
+                        .addParameter(callerParam)
+                        .addParameter(mapperFactoryParam)
+                        .addParameter(dispatcherParam)
+                        .build(),
+                ).addProperty(
+                    PropertySpec
+                        .builder("caller", callerParam.type)
+                        .initializer("caller")
+                        .addModifiers(KModifier.PRIVATE)
+                        .build(),
+                ).addProperty(
+                    PropertySpec
+                        .builder("mapperFactory", mapperFactoryParam.type)
+                        .initializer("mapperFactory")
+                        .addModifiers(KModifier.PRIVATE)
+                        .build(),
+                ).addProperty(
+                    PropertySpec
+                        .builder("dispatcher", dispatcherParam.type)
+                        .initializer("dispatcher")
+                        .addModifiers(KModifier.PRIVATE)
+                        .build(),
+                ).addSuperinterface(ClassName.bestGuess(containerName))
+        return clientClassBuilder
+    }
+
+    private fun hasCollectionType(endpoints: List<EndpointAnalyzer.Endpoint>): Boolean =
+        endpoints.any { ep ->
+            val rt = safeToTypeName(ep.function.returnType)
+            // nullable return type
+            if (rt.isNullable) {
+                return@any true
+            }
+
+            // collection-like with nullable element
+            when (rt) {
+                is ParameterizedTypeName -> {
+                    val raw = rt.rawType
+                    if (collectionRawTypes.contains(raw)) {
+                        val elem = rt.typeArguments.firstOrNull()
+                        elem?.isNullable == true
+                    } else {
+                        false
+                    }
+                }
+
+                else -> {
+                    false
+                }
+            }
+        }
+
     private fun buildFunction(endpoint: EndpointAnalyzer.Endpoint): FunSpec {
         val fn = endpoint.function
+        val returnTypeName = safeToTypeName(fn.returnType)
 
         val funBuilder =
             FunSpec
                 .builder(fn.simpleName.asString())
-                .addModifiers(KModifier.SUSPEND)
+                .addModifiers(KModifier.OVERRIDE, KModifier.SUSPEND)
+                .returns(returnTypeName)
 
-        // safe return-type conversion (guard against KSP 'error type' during incremental rounds)
-        fn.returnType?.let { rt ->
-            val returnTypeName = safeToTypeName(rt)
-            funBuilder.returns(returnTypeName)
-        }
-
+        // parameters
         fn.parameters.forEach { param ->
             val paramType = safeToTypeName(param.type)
-            funBuilder.addParameter(
-                param.name?.asString() ?: "param",
-                paramType,
-            )
+            funBuilder.addParameter(param.name?.asString() ?: "param", paramType)
         }
 
-        val urlExpression =
-            buildUrlExpression(endpoint.path, endpoint.params)
+        // withContext wrapper start — use MemberName so import is generated
+        funBuilder.addCode("return %M(dispatcher) {\n", WITH_CONTEXT)
 
-        val httpCall =
-            buildHttpCall(
-                endpoint.method.let { HttpMethod.valueOf(it) },
-                urlExpression,
-                endpoint.params.body,
-            )
+        // delegate to CallGenerator which now emits path/query/request/mapper inline
+        funBuilder.addCode(CallGenerator.generate(endpoint, returnTypeName, fn.parameters))
 
-        funBuilder.addStatement("return %L", httpCall)
-
+        // close withContext
+        funBuilder.addCode("}\n")
         return funBuilder.build()
     }
-
-    // Build URL expression using concatenation to avoid escaping template syntax.
-    // Example: "/users/{id}/photos" -> "\"/users/\" + id + \"/photos\""
-    private fun buildUrlExpression(
-        rawPath: String,
-        params: EndpointAnalyzer.ParameterAnalysis,
-    ): String {
-        val placeholderRegex = "\\{([^}/]+)\\}".toRegex()
-        var lastIndex = 0
-        val parts = mutableListOf<String>()
-
-        for (m in placeholderRegex.findAll(rawPath)) {
-            val start = m.range.first
-            val end = m.range.last + 1
-            val literal = rawPath.substring(lastIndex, start)
-            if (literal.isNotEmpty()) {
-                parts += "\"${literal}\""
-            }
-            val name = m.groupValues[1]
-            parts += name // parameter insertion (unquoted)
-            lastIndex = end
-        }
-
-        val tail = rawPath.substring(lastIndex)
-        if (tail.isNotEmpty()) {
-            parts += "\"${tail}\""
-        }
-
-        var expr = if (parts.isEmpty()) "\"$rawPath\"" else parts.joinToString(" + ")
-
-        // Append query parameters using concatenation: ?a= + param
-        if (params.query.isNotEmpty()) {
-            val qsParts =
-                params.query.mapIndexed { idx, (name, param) ->
-                    val paramExpr = param.name?.asString() ?: "param$idx"
-                    val prefix =
-                        if (idx == 0) {
-                            "\"?$name=\" + $paramExpr"
-                        } else {
-                            "\"&$name=\" + $paramExpr"
-                        }
-                    prefix
-                }
-            // join queries with " + " and append to expr
-            expr =
-                if (expr.isBlank()) {
-                    qsParts.joinToString(
-                        " + ",
-                    )
-                } else {
-                    "$expr + ${qsParts.joinToString(" + ")}"
-                }
-        }
-
-        return expr
-    }
-
-    private fun buildHttpCall(
-        httpMethod: HttpMethod,
-        urlExpression: String,
-        bodyParam: KSValueParameter?,
-    ): String =
-        when (httpMethod) {
-            HttpMethod.GET -> {
-                "http.get($urlExpression)"
-            }
-
-            HttpMethod.DELETE -> {
-                "http.delete($urlExpression)"
-            }
-
-            HttpMethod.POST,
-            HttpMethod.PUT,
-            HttpMethod.PATCH,
-            -> {
-                val body =
-                    bodyParam?.name?.asString() ?: "null"
-                "http.${httpMethod.name.lowercase()}($urlExpression, $body)"
-            }
-
-            else -> {
-                logger.error("Unsupported HTTP method: $httpMethod")
-                "error(\"Unsupported HTTP method\")"
-            }
-        }
 
     private fun writeFile(
         fileSpec: FileSpec,
         sourceFiles: List<KSFile>,
     ) {
-        // guard empty sourceFiles and prefer aggregating=true for broader incremental correctness
         val srcs = sourceFiles.toTypedArray()
-        val deps =
-            Dependencies(
-                aggregating = true,
-                *srcs,
-            )
+        val deps = Dependencies(aggregating = true, *srcs)
 
         codeGenerator
             .createNewFile(
@@ -224,19 +209,21 @@ class ClientGenerator(
             }
     }
 
-    // Safe conversion helper: try KSP->TypeName conversion, fall back to ClassName.bestGuess or kotlin.Any
     private fun safeToTypeName(typeRef: KSTypeReference?): TypeName {
-        if (typeRef == null) return ClassName("kotlin", "Unit")
+        if (typeRef == null) {
+            return ClassName("kotlin", "Unit")
+        }
+
         return try {
             typeRef.toTypeName()
         } catch (_: IllegalArgumentException) {
-            // unresolved / error type — try to recover using declaration FQN
             val resolved =
                 try {
                     typeRef.resolve()
                 } catch (_: Exception) {
                     null
                 }
+
             val fqn = resolved?.declaration?.qualifiedName?.asString()
             val base =
                 if (!fqn.isNullOrBlank()) {
@@ -246,6 +233,7 @@ class ClientGenerator(
                 } else {
                     ClassName("kotlin", "Any")
                 }
+
             if (resolved?.nullability == Nullability.NULLABLE) {
                 base.copy(nullable = true)
             } else {

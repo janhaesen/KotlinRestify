@@ -1,13 +1,17 @@
-package io.github.aeshen.kotlinrestify.runtime
+package io.github.aeshen.restify.runtime.retry
 
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withTimeout
 
 /**
- * Retry policy contract used by GeneratedApiCaller.
+ * Retry policy contract used by ApiCaller.
  */
 interface RetryPolicy {
     suspend fun <T> retry(block: suspend () -> T): T
+}
+
+class NoRetryPolicy : RetryPolicy {
+    override suspend fun <T> retry(block: suspend () -> T): T = block()
 }
 
 /**

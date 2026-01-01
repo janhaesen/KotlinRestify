@@ -1,14 +1,18 @@
 package io.github.aeshen.restify.processor
 
 import com.google.devtools.ksp.symbol.KSAnnotation
+import com.google.devtools.ksp.symbol.KSDeclaration
 import com.google.devtools.ksp.symbol.KSFunctionDeclaration
 import com.google.devtools.ksp.symbol.KSType
 import com.google.devtools.ksp.symbol.KSValueParameter
+import io.github.aeshen.restify.annotation.http.HttpMethod
+import io.github.aeshen.restify.processor.generator.BASE_PACKAGE
 
 class EndpointAnalyzer {
     data class Endpoint(
         val function: KSFunctionDeclaration,
-        val method: String,
+        val method: HttpMethod,
+        val resourcePath: String = "",
         val path: String,
         val params: ParameterAnalysis,
     )
@@ -38,15 +42,40 @@ class EndpointAnalyzer {
 
         // determine the HTTP method key (e.g. "GET", "POST") by matching declaration equality
         val annoDecl = methodAnno.annotationType.resolve().declaration
-        val methodKey =
+        val httpMethod =
             types.httpMethodAnnos.entries
                 .firstOrNull { it.value.declaration == annoDecl }
-                ?.key ?: "GET"
+                ?.key ?: HttpMethod.GET // fallback (should not happen)
 
         // read path safely from the HTTP method annotation (fallback to "/" when absent)
         val path = methodAnno.getStringArg("path") ?: "/"
 
-        return Endpoint(fn, methodKey, path, analyzeParams(fn, types))
+        return Endpoint(
+            function = fn,
+            method = httpMethod,
+            resourcePath = extractResourcePath(fn.parentDeclaration),
+            path = path,
+            params = analyzeParams(fn, types),
+        )
+    }
+
+    private fun extractResourcePath(decl: KSDeclaration?): String {
+        if (decl == null) {
+            return ""
+        }
+
+        val ann =
+            decl.annotations.firstOrNull {
+                it.annotationType
+                    .resolve()
+                    .declaration.qualifiedName
+                    ?.asString() ==
+                    "$BASE_PACKAGE.annotation.http.Resource"
+            } ?: return ""
+
+        // annotation has parameter named "path"
+        val pathArg = ann.arguments.firstOrNull { it.name?.asString() == "path" }?.value
+        return (pathArg as? String)?.takeIf { it.isNotBlank() } ?: ""
     }
 
     private fun analyzeParams(
