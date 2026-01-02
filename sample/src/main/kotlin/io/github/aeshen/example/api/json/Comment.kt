@@ -1,13 +1,13 @@
 package io.github.aeshen.example.api.json
 
 import io.github.aeshen.restify.runtime.serialization.OptionalField
-import kotlinx.serialization.Contextual
 import kotlinx.serialization.Serializable
 
 @Serializable
-data class Post(
-    val userId: OptionalField<Int>,
+data class Comment(
+    val postId: OptionalField<Int>,
     val id: OptionalField<Int>,
-    val title: OptionalField<String>,
+    val name: OptionalField<String>,
+    val email: OptionalField<String>,
     val body: OptionalField<String>,
 )
