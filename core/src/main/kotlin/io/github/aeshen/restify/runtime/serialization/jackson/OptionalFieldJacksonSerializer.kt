@@ -25,65 +25,64 @@ import tools.jackson.databind.ValueSerializer
  */
 class OptionalFieldJacksonSerializer(
     private val valueType: JavaType? = null,
-    private val valueSerializer: ValueSerializer<Any?>? = null
+    private val valueSerializer: ValueSerializer<Any?>? = null,
 ) : ValueSerializer<OptionalField<*>>() {
-
-    /**
-     * Serialize an OptionalField<T> to the envelope JSON shape.
-     *
-     * The method resolves a content serializer (if not already provided) and uses it to emit the
-     * "value" entry when the OptionalField is Present. Absent simply writes "present": false.
-     */
     override fun serialize(
         value: OptionalField<*>,
         gen: JsonGenerator,
-        ctxt: SerializationContext
+        ctxt: SerializationContext,
     ) {
         gen.writeStartObject()
 
         when (value) {
             OptionalField.Absent -> {
-                // explicit absent marker
                 gen.writeBooleanProperty("present", false)
             }
 
             is OptionalField.Present<*> -> {
                 gen.writeBooleanProperty("present", true)
-                gen.writeRawValue("value")
+                gen.writeName("value")
 
-                // Resolve serializer once into a local variable to keep the call site readable.
-                val effectiveType = valueType
-                    ?: ctxt.constructType(Any::class.java)
-                val resolvedSerializer = valueSerializer
-                    ?: ctxt.findValueSerializer(effectiveType)
+                val effectiveType = valueType ?: ctxt.constructType(Any::class.java)
+                val resolvedSerializer = valueSerializer ?: ctxt.findValueSerializer(effectiveType)
 
-                @Suppress("UNCHECKED_CAST")
-                (resolvedSerializer as ValueSerializer<Any?>)
-                    .serialize(value.value, gen, ctxt)
+                // Explicitly handle null inner value to emit a JSON `null` token.
+                if (value.value == null) {
+                    gen.writeNull()
+                } else {
+                    @Suppress("UNCHECKED_CAST")
+                    (resolvedSerializer as ValueSerializer<Any?>).serialize(value.value, gen, ctxt)
+                }
             }
         }
 
         gen.writeEndObject()
     }
 
-    /**
-     * Contextualization hook. When used as a bean property Jackson will call this method
-     * so we can resolve a serializer for the contained type T.
-     */
     override fun createContextual(
         ctxt: SerializationContext,
-        property: BeanProperty,
+        property: BeanProperty?,
     ): ValueSerializer<*> {
+        // If there's no BeanProperty (root-level usage), keep existing instance.
+        if (property == null) {
+            return this
+        }
+
         val wrapperType = property.type
-        val containedType = wrapperType.containedType(0)
-            ?: ctxt.constructType(Any::class.java)
+
+        // Prefer OptionalField super-type if present (handles cases where Jackson hands a related/erased type).
+        val optionalSuper = wrapperType.findSuperType(OptionalField::class.java)
+        val containedType =
+            optionalSuper?.containedType(0)
+                ?: wrapperType.containedType(0)
+                ?: ctxt.constructType(Any::class.java)
 
         val ser = ctxt.findContentValueSerializer(containedType, property)
 
         @Suppress("UNCHECKED_CAST")
         return OptionalFieldJacksonSerializer(
             valueType = containedType,
-            valueSerializer = ser as ValueSerializer<Any?>
+            valueSerializer = ser as ValueSerializer<Any?>,
         )
     }
 }

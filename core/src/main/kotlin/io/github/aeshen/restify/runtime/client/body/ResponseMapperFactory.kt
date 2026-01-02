@@ -1,21 +1,19 @@
 package io.github.aeshen.restify.runtime.client.body
 
 /**
- * Generic factory abstraction to create ResponseMapper\<T\> instances from a bytes->T function.
- * This keeps the factory implementation serializer-agnostic and avoids switching logic.
+ * Unified factory API: request a mapper by a neutral TypeKey.
+ * Implementations provide a nullable lookup via `tryFor`. Callers that require a
+ * non-nullable mapper can use `forType<T>` which will throw when no mapper is available.
  */
 interface ResponseMapperFactory {
-    fun <T> fromBytes(deserialize: (ByteArray?) -> T): ResponseMapper<T>
-}
+    /** Return a mapper for the requested logical `TypeKey`, or null when this factory can't handle the key. */
+    fun <T> tryFor(key: TypeKey): ResponseMapper<T>?
 
-/**
- * Default, trivial implementation that yields a ResponseMapper delegating to the provided function.
- */
-class DefaultResponseMapperFactory : ResponseMapperFactory {
-    override fun <T> fromBytes(deserialize: (ByteArray?) -> T): ResponseMapper<T> =
-        ResponseMapper { response ->
-            deserialize(
-                response.body,
-            )
-        }
+    /**
+     * Convenience non-nullable accessor used by generated code.
+     * Attempts to cast the nullable mapper to `ResponseMapper<T>` and throws if unavailable.
+     */
+    fun <T> forType(key: TypeKey): ResponseMapper<T> =
+        tryFor(key)
+            ?: throw UnsupportedOperationException("No ResponseMapper found for key: $key")
 }

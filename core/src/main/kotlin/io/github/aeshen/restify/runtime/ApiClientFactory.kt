@@ -4,7 +4,7 @@ import io.github.aeshen.restify.runtime.client.AdapterHttpClient
 import io.github.aeshen.restify.runtime.client.DefaultApiCaller
 import io.github.aeshen.restify.runtime.client.adapter.HttpClientAdapter
 import io.github.aeshen.restify.runtime.client.adapter.ktor.KtorHttpClientAdapter
-import io.github.aeshen.restify.runtime.client.body.DefaultResponseMapperFactory
+import io.github.aeshen.restify.runtime.client.body.DelegatingResponseMapperFactory
 import io.github.aeshen.restify.runtime.client.body.ResponseMapperFactory
 import io.github.aeshen.restify.runtime.client.path.UrlBuilder
 import io.github.aeshen.restify.runtime.client.path.impl.DefaultUrlBuilder
@@ -13,6 +13,7 @@ import io.github.aeshen.restify.runtime.retry.TimeBoundRetryPolicy
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import java.io.Closeable
+import kotlin.invoke
 import kotlin.reflect.KClass
 import kotlin.reflect.KFunction
 import kotlin.reflect.KParameter
@@ -23,23 +24,57 @@ object ApiClientFactory {
     class Builder internal constructor() {
         private var adapter: HttpClientAdapter? = null
         private var defaultRetryTimeoutMillis: Long = DEFAULT_TIMEOUT_MILLIS
-        private var configureCfg: ApiConfig.() -> Unit = {}
+
+        // Supplier that will produce the immutable ApiConfig when building
+        private var apiConfigSupplier: (() -> ApiConfig)? = null
+
         private var explicitRetryPolicy: RetryPolicy? = null
         private var perClientCallerMode: Boolean = false
+
+        // Optional prebuilt ResponseMapperFactory or a list of ResponseMapperFactory
+        private var explicitResponseMapperFactory: ResponseMapperFactory? = null
+        private var responseMapperFactories: List<ResponseMapperFactory> = emptyList()
 
         fun adapter(adapter: HttpClientAdapter?) = apply { this.adapter = adapter }
 
         fun defaultRetryTimeoutMillis(ms: Long) = apply { this.defaultRetryTimeoutMillis = ms }
 
-        fun configure(configure: ApiConfig.() -> Unit) = apply { this.configureCfg = configure }
+        /**
+         * Provide an already-built immutable ApiConfig.
+         */
+        fun config(apiConfig: ApiConfig) = apply { this.apiConfigSupplier = { apiConfig } }
+
+        /**
+         * Build an ApiConfig from a baseUrl and a Builder block.
+         * Requires a non-empty baseUrl to encourage explicit configuration.
+         */
+        fun config(baseUrl: String, block: ApiConfig.Builder.() -> Unit) =
+            apply {
+                require(baseUrl.isNotBlank()) { "baseUrl must be provided and non-blank" }
+                this.apiConfigSupplier = { ApiConfig.build(baseUrl, block) }
+            }
 
         fun retryPolicy(policy: RetryPolicy?) =
             apply {
-                this.explicitRetryPolicy =
-                    policy
+                this.explicitRetryPolicy = policy
             }
 
         fun perClientCallerMode(enabled: Boolean) = apply { this.perClientCallerMode = enabled }
+
+        /**
+         * Provide a prebuilt ResponseMapperFactory to use for generated clients.
+         */
+        fun responseMapperFactory(factory: ResponseMapperFactory?) =
+            apply { this.explicitResponseMapperFactory = factory }
+
+        /**
+         * Register response mapper factories to be used by the default DelegatingResponseMapperFactory.
+         */
+        fun responseMapperFactories(factories: List<ResponseMapperFactory>) =
+            apply { this.responseMapperFactories = factories }
+
+        fun addResponseMapperFactory(factory: ResponseMapperFactory) =
+            apply { this.responseMapperFactories += factory }
 
         /**
          * Build an ApiCaller wired with the configured adapter and ApiConfig.
@@ -52,29 +87,21 @@ object ApiClientFactory {
          * Closing it will release the underlying low-level adapter once.
          */
         fun buildManagedCaller(): ManagedApiCaller {
-            // Build immutable ApiConfig and ensure a retry policy is present
-            val baseCfg =
-                ApiConfig(baseUrl = "")
-                    .apply(configureCfg)
-            val resolvedRetry =
-                baseCfg.retryPolicy ?: explicitRetryPolicy
-                    ?: TimeBoundRetryPolicy(
-                        defaultRetryTimeoutMillis,
-                    )
+            // Ensure caller provided an ApiConfig explicitly
+            val baseCfg = apiConfigSupplier?.invoke()
+                ?: throw IllegalStateException(
+                    "ApiConfig must be provided via Builder.config(ApiConfig) or Builder.config(baseUrl, block)"
+                )
+
+            val resolvedRetry = baseCfg.retryPolicy
+                ?: explicitRetryPolicy
+                ?: TimeBoundRetryPolicy(defaultRetryTimeoutMillis)
             val cfg = baseCfg.copy(retryPolicy = resolvedRetry)
 
             val effectiveAdapter = adapter ?: KtorHttpClientAdapter()
-            val adapterHttpClient =
-                AdapterHttpClient(
-                    effectiveAdapter,
-                    cfg,
-                )
-            val caller =
-                DefaultApiCaller(
-                    adapterHttpClient,
-                )
+            val adapterHttpClient = AdapterHttpClient(effectiveAdapter, cfg)
+            val caller = DefaultApiCaller(adapterHttpClient)
 
-            // Do not expose AdapterHttpClient type in the ManagedApiCaller constructor.
             return ManagedApiCaller(
                 delegate = caller,
                 closeAdapter = { adapterHttpClient.closeAdapter() },
@@ -94,26 +121,29 @@ object ApiClientFactory {
             val callerForCtor: ApiCaller
             val cfgForCtor: ApiConfig
 
-            // Always build a managed caller (shared or per-client behavior unchanged)
+            // Always build a managed caller
             val managed = buildManagedCaller()
             callerForCtor = managed
             cfgForCtor = managed.toApiConfig()
 
-            val mapperFactory = DefaultResponseMapperFactory()
+            // Build mapperFactory: prefer explicit, otherwise a delegating factory with registered factories
+            val mapperFactory: ResponseMapperFactory =
+                explicitResponseMapperFactory
+                    ?: DelegatingResponseMapperFactory(responseMapperFactories)
+
             val dispatcher: CoroutineDispatcher = Dispatchers.IO
 
             val ctor = getConstructor(clientClass)
 
             // map parameters
-            val args =
-                mapParameters(
-                    ctor = ctor,
-                    callerForCtor = callerForCtor,
-                    cfgForCtor = cfgForCtor,
-                    mapperFactory = mapperFactory,
-                    dispatcher = dispatcher,
-                    clientClass = clientClass,
-                )
+            val args = mapParameters(
+                ctor = ctor,
+                callerForCtor = callerForCtor,
+                cfgForCtor = cfgForCtor,
+                mapperFactory = mapperFactory,
+                dispatcher = dispatcher,
+                clientClass = clientClass,
+            )
 
             return ctor.callBy(args)
         }
@@ -122,7 +152,7 @@ object ApiClientFactory {
             ctor: KFunction<T>,
             callerForCtor: ManagedApiCaller,
             cfgForCtor: ApiConfig,
-            mapperFactory: DefaultResponseMapperFactory,
+            mapperFactory: ResponseMapperFactory,
             dispatcher: CoroutineDispatcher,
             clientClass: KClass<T>,
         ): MutableMap<KParameter, Any?> {
@@ -213,8 +243,7 @@ object ApiClientFactory {
         private val delegate: ApiCaller,
         private val closeAdapter: () -> Unit,
         private val apiConfigSupplier: () -> ApiConfig,
-    ) : ApiCaller,
-        Closeable {
+    ) : ApiCaller, Closeable {
         override suspend fun <T> call(
             request: RequestData,
             mapper: io.github.aeshen.restify.runtime.client.body.ResponseMapper<T>,
@@ -231,21 +260,22 @@ object ApiClientFactory {
     }
 }
 
+/* Top-level convenience helpers now require an ApiConfig explicitly. */
 fun <T : Any> ApiClientFactory.createClient(
     clientClass: KClass<T>,
     adapter: HttpClientAdapter? = null,
     defaultRetryTimeoutMillis: Long = 10_000L,
-    configure: ApiConfig.() -> Unit = {},
+    apiConfig: ApiConfig,
 ): T =
     ApiClientFactory
         .builder()
         .adapter(adapter)
         .defaultRetryTimeoutMillis(defaultRetryTimeoutMillis)
-        .configure(configure)
+        .config(apiConfig)
         .createClient(clientClass)
 
 inline fun <reified T : Any> ApiClientFactory.createClient(
     adapter: HttpClientAdapter? = null,
     defaultRetryTimeoutMillis: Long = 10_000L,
-    noinline configure: ApiConfig.() -> Unit = {},
-): T = createClient(T::class, adapter, defaultRetryTimeoutMillis, configure)
+    apiConfig: ApiConfig,
+): T = createClient(T::class, adapter, defaultRetryTimeoutMillis, apiConfig)

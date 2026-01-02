@@ -1,7 +1,6 @@
 package io.github.aeshen.example.api.json
 
 import io.github.aeshen.restify.runtime.serialization.OptionalField
-import kotlinx.serialization.Contextual
 import kotlinx.serialization.Serializable
 
 @Serializable

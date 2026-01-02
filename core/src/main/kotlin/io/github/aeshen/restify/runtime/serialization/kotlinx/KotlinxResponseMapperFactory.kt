@@ -1,0 +1,75 @@
+package io.github.aeshen.restify.runtime.serialization.kotlinx
+
+import io.github.aeshen.restify.runtime.ResponseData
+import io.github.aeshen.restify.runtime.client.body.ResponseMapper
+import io.github.aeshen.restify.runtime.client.body.ResponseMapperFactory
+import io.github.aeshen.restify.runtime.client.body.TypeKey
+import kotlin.reflect.KClass
+import kotlin.reflect.KType
+import kotlin.reflect.full.createType
+import kotlinx.serialization.KSerializer
+import kotlinx.serialization.builtins.ListSerializer
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.serializer
+
+/**
+ * ResponseMapperFactory backed by a configured kotlinx.serialization Json instance.
+ * Construct with your `Json { ... }` configuration and register via the builder.
+ */
+class KotlinxResponseMapperFactory(
+    private val json: Json = Json,
+) : ResponseMapperFactory {
+
+    companion object {
+        private val DEFAULT_CHARSET = Charsets.UTF_8
+    }
+
+    override fun <T> tryFor(key: TypeKey): ResponseMapper<T>? {
+        return when (key) {
+            is TypeKey.ClassKey -> {
+                val kType = makeKType(key.clazz, key.nullable)
+                val ks = serializerFor(kType)
+                    ?: return null
+                responseMapperForSerializer(ks)
+            }
+
+            is TypeKey.ListKey -> {
+                val elemType = makeKType(key.elementClazz, key.elementNullable)
+                val elemSerializer = serializerFor(elemType)
+                    ?: return null
+
+                @Suppress("UNCHECKED_CAST")
+                val listSerializer = ListSerializer(elemSerializer as KSerializer<Any?>)
+                responseMapperForSerializer(listSerializer)
+            }
+        }
+    }
+
+    private fun makeKType(kClass: KClass<out Any>, nullable: Boolean): KType =
+        if (nullable) {
+            kClass.createType(nullable = true)
+        } else {
+            kClass.createType()
+        }
+
+    private fun serializerFor(kType: KType): KSerializer<*>? =
+        try {
+            @Suppress("UNCHECKED_CAST")
+            serializer(kType) as KSerializer<*>
+        } catch (_: Exception) {
+            null
+        }
+
+    private fun <T> responseMapperForSerializer(serializer: KSerializer<*>): ResponseMapper<T> =
+        ResponseMapper { response ->
+            val str = responseBodyAsString(response)
+            @Suppress("UNCHECKED_CAST")
+            val s = serializer as KSerializer<T>
+            json.decodeFromString(s, str)
+        }
+
+    private fun responseBodyAsString(response: ResponseData): String {
+        val bytes = response.body ?: throw IllegalStateException("Response body is not present")
+        return String(bytes, DEFAULT_CHARSET)
+    }
+}

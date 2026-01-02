@@ -22,7 +22,14 @@ object CallGenerator {
         val responseMapper = ClassName("$RUNTIME_PACKAGE.client.body", "ResponseMapper")
         val responseData = ClassName(RUNTIME_PACKAGE, "ResponseData")
 
-        val bodyName = endpoint.params.body?.name?.asString()
+        val typeKey = ClassName("$RUNTIME_PACKAGE.client.body", "TypeKey")
+        val listKeyClass = typeKey.nestedClass("ListKey")
+        val classKeyClass = typeKey.nestedClass("ClassKey")
+
+        val bodyName =
+            endpoint.params.body
+                ?.name
+                ?.asString()
 
         val resourcePrefix = endpoint.resourcePath
         val fullPath = determineFullPath(resourcePrefix, endpoint)
@@ -36,8 +43,6 @@ object CallGenerator {
                 responseData,
             )
         } else {
-            val listSerializerClass = ClassName("kotlinx.serialization.builtins", "ListSerializer")
-
             val isCollectionLike =
                 when (returnTypeName) {
                     is ParameterizedTypeName -> collectionRawTypes.contains(returnTypeName.rawType)
@@ -53,27 +58,35 @@ object CallGenerator {
                     } else {
                         paramType
                     }
-                val elemSerializerBlock =
-                    if (paramIsNullable) {
-                        CodeBlock.of("(%T.serializer()).nullable", paramNonNull)
-                    } else {
-                        CodeBlock.of("%T.serializer()", paramNonNull)
-                    }
+
+                // Emit neutral TypeKey.ListKey(...) and include explicit generic type argument
+                // so the compiler can resolve the mapper type: forType<List<Elem>>(TypeKey.ListKey(...))
                 cb.addStatement(
-                    "val mapper = mapperFactory.forKotlinx(%T(%L))",
-                    listSerializerClass,
-                    elemSerializerBlock,
+                    "val mapper = mapperFactory.forType<%T>(%T(%T::class, %L))",
+                    returnTypeName, // List<Elem>
+                    listKeyClass,
+                    paramNonNull,
+                    paramIsNullable,
                 )
             } else {
                 val rtIsNullable = returnTypeName.isNullable
                 if (rtIsNullable) {
                     val nonNullRt = returnTypeName.copy(nullable = false)
-                    val serializerBlock = CodeBlock.of("(%T.serializer()).nullable", nonNullRt)
-                    cb.addStatement("val mapper = mapperFactory.forKotlinx(%L)", serializerBlock)
+                    // Emit neutral TypeKey.ClassKey(T::class, nullable = true) with explicit generic `Post?`
+                    cb.addStatement(
+                        "val mapper = mapperFactory.forType<%T>(%T(%T::class, %L))",
+                        returnTypeName, // e.g. Post?
+                        classKeyClass,
+                        nonNullRt,
+                        true,
+                    )
                 } else {
                     cb.addStatement(
-                        "val mapper = mapperFactory.forKotlinx(%T.serializer())",
+                        "val mapper = mapperFactory.forType<%T>(%T(%T::class, %L))",
+                        returnTypeName, // e.g. Post
+                        classKeyClass,
                         returnTypeName,
+                        false,
                     )
                 }
             }
@@ -98,7 +111,12 @@ object CallGenerator {
                 val argName = matchedParam.argNameOr(ph)
                 val nullable = matchedParam.isNullableParam()
                 if (nullable) {
-                    pathParamsBlock.add("      if (%N != null) put(%S, %N.toString())\n", argName, ph, argName)
+                    pathParamsBlock.add(
+                        "      if (%N != null) put(%S, %N.toString())\n",
+                        argName,
+                        ph,
+                        argName,
+                    )
                 } else {
                     pathParamsBlock.add("      put(%S, %N.toString())\n", ph, argName)
                 }
@@ -117,7 +135,12 @@ object CallGenerator {
                 val pname = qparam.argNameOr("param$idx")
                 val nullable = qparam.isNullableParam()
                 if (nullable) {
-                    queryParamsBlock.add("      if (%N != null) put(%S, %N.toString())\n", pname, qname, pname)
+                    queryParamsBlock.add(
+                        "      if (%N != null) put(%S, %N.toString())\n",
+                        pname,
+                        qname,
+                        pname,
+                    )
                 } else {
                     queryParamsBlock.add("      put(%S, %N.toString())\n", qname, pname)
                 }
@@ -146,13 +169,14 @@ object CallGenerator {
 
     private fun determineFullPath(
         resourcePrefix: String,
-        endpoint: EndpointAnalyzer.Endpoint
+        endpoint: EndpointAnalyzer.Endpoint,
     ): String {
-        val fullPath = when {
-            resourcePrefix.isBlank() -> endpoint.path
-            endpoint.path.startsWith(resourcePrefix) -> endpoint.path
-            else -> resourcePrefix.trimEnd('/') + endpoint.path
-        }
+        val fullPath =
+            when {
+                resourcePrefix.isBlank() -> endpoint.path
+                endpoint.path.startsWith(resourcePrefix) -> endpoint.path
+                else -> resourcePrefix.trimEnd('/') + endpoint.path
+            }
         return fullPath
     }
 }

@@ -34,20 +34,23 @@ val placeholderRegex = "\\{([^}/]+)\\}".toRegex()
  */
 fun findMatchingParam(
     placeholder: String,
-    params: List<KSValueParameter>
+    params: List<KSValueParameter>,
 ): KSValueParameter? {
-    params.firstOrNull { it.name?.asString() == placeholder }
+    params
+        .firstOrNull { it.name?.asString() == placeholder }
         ?.let { return it }
 
-    params.firstOrNull {
-        val n = it.name?.asString() ?: return@firstOrNull false
-        n.endsWith(placeholder, ignoreCase = true)
-    }?.let { return it }
+    params
+        .firstOrNull {
+            val n = it.name?.asString() ?: return@firstOrNull false
+            n.endsWith(placeholder, ignoreCase = true)
+        }?.let { return it }
 
-    params.firstOrNull {
-        val n = it.name?.asString() ?: return@firstOrNull false
-        n.startsWith(placeholder, ignoreCase = true)
-    }?.let { return it }
+    params
+        .firstOrNull {
+            val n = it.name?.asString() ?: return@firstOrNull false
+            n.startsWith(placeholder, ignoreCase = true)
+        }?.let { return it }
 
     return null
 }

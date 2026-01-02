@@ -38,13 +38,15 @@ class ClientGenerator(
         val clientClassName = "${containerName.substringAfterLast('.')}Client"
         val fileBuilder = FileSpec.builder(generatedPackage, clientClassName)
 
-        val needsNullableImport = hasCollectionType(endpoints)
-        if (needsNullableImport) {
-            fileBuilder.addImport("kotlinx.serialization.builtins", "nullable")
+        // Import TypeKey when any endpoint uses a non-Unit return type (the generator will emit TypeKey instances)
+        val needsTypeKeyImport =
+            endpoints.any { ep ->
+                val rt = safeToTypeName(ep.function.returnType)
+                rt != ClassName("kotlin", "Unit")
+            }
+        if (needsTypeKeyImport) {
+            fileBuilder.addImport("$RUNTIME_PACKAGE.client.body", "TypeKey")
         }
-
-        // ensure we import the forKotlinx extension with its FQN
-        fileBuilder.addImport("$RUNTIME_PACKAGE.client.body", "forKotlinx")
 
         val callerParam =
             ParameterSpec
@@ -137,32 +139,6 @@ class ClientGenerator(
                 ).addSuperinterface(ClassName.bestGuess(containerName))
         return clientClassBuilder
     }
-
-    private fun hasCollectionType(endpoints: List<EndpointAnalyzer.Endpoint>): Boolean =
-        endpoints.any { ep ->
-            val rt = safeToTypeName(ep.function.returnType)
-            // nullable return type
-            if (rt.isNullable) {
-                return@any true
-            }
-
-            // collection-like with nullable element
-            when (rt) {
-                is ParameterizedTypeName -> {
-                    val raw = rt.rawType
-                    if (collectionRawTypes.contains(raw)) {
-                        val elem = rt.typeArguments.firstOrNull()
-                        elem?.isNullable == true
-                    } else {
-                        false
-                    }
-                }
-
-                else -> {
-                    false
-                }
-            }
-        }
 
     private fun buildFunction(endpoint: EndpointAnalyzer.Endpoint): FunSpec {
         val fn = endpoint.function

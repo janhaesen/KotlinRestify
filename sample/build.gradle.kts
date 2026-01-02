@@ -14,4 +14,8 @@ dependencies {
 
     // use local processor during KSP phase
     ksp("io.github.aeshen.restify:processor:0.1.0")
+
+    testImplementation(libs.jackson.core)
+    testImplementation(libs.jackson.databind)
+    testImplementation(libs.jackson.module.kotlin)
 }

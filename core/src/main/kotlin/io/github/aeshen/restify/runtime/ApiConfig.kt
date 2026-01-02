@@ -3,11 +3,50 @@ package io.github.aeshen.restify.runtime
 import io.github.aeshen.restify.runtime.client.body.BodySerializer
 import io.github.aeshen.restify.runtime.retry.RetryPolicy
 
+/**
+ * Configuration for API runtime.
+ *
+ * - `baseUrl` is required in the primary constructor and is immutable.
+ * - Use `ApiConfig.builder(baseUrl)` to construct with a fluent Builder.
+ * - `toBuilder()` lets you start from an existing config to modify fields.
+ */
 data class ApiConfig(
-    var baseUrl: String,
+    val baseUrl: String,
     val defaultHeaders: Map<String, String> = emptyMap(),
     val timeoutMillis: Long? = null,
     val bodySerializer: BodySerializer? = null,
     val retryPolicy: RetryPolicy? = null,
     val followRedirects: Boolean = true,
-)
+) {
+    companion object {
+        @JvmStatic
+        fun builder(baseUrl: String): Builder = Builder(baseUrl)
+
+        @JvmStatic
+        inline fun build(baseUrl: String, block: Builder.() -> Unit): ApiConfig = builder(baseUrl).apply(block).build()
+    }
+
+    class Builder internal constructor(private val baseUrl: String) {
+        var defaultHeaders: Map<String, String> = emptyMap()
+        var timeoutMillis: Long? = null
+        var bodySerializer: BodySerializer? = null
+        var retryPolicy: RetryPolicy? = null
+        var followRedirects: Boolean = true
+
+        fun defaultHeaders(headers: Map<String, String>) = apply { this.defaultHeaders = headers }
+        fun timeoutMillis(ms: Long?) = apply { this.timeoutMillis = ms }
+        fun bodySerializer(serializer: BodySerializer?) = apply { this.bodySerializer = serializer }
+        fun retryPolicy(policy: RetryPolicy?) = apply { this.retryPolicy = policy }
+        fun followRedirects(follow: Boolean) = apply { this.followRedirects = follow }
+
+        fun build(): ApiConfig =
+            ApiConfig(
+                baseUrl = baseUrl,
+                defaultHeaders = defaultHeaders,
+                timeoutMillis = timeoutMillis,
+                bodySerializer = bodySerializer,
+                retryPolicy = retryPolicy,
+                followRedirects = followRedirects,
+            )
+    }
+}
