@@ -107,13 +107,14 @@ object CallGenerator {
             cb.add("      pathParameters(emptyMap())\n")
         } else {
             cb.add("      pathParameters(buildMap {\n")
-            for (name in placeholders) {
-                val param = params.firstOrNull { it.name?.asString() == name }
-                val nullable = param?.type?.resolve()?.nullability == Nullability.NULLABLE
+            for (ph in placeholders) {
+                val matchedParam = findMatchingParam(ph, params)
+                val argName = matchedParam?.name?.asString() ?: ph
+                val nullable = matchedParam?.type?.resolve()?.nullability == Nullability.NULLABLE
                 if (nullable) {
-                    cb.add("        if (%N != null) put(%S, %N.toString())\n", name, name, name)
+                    cb.add("        if (%N != null) put(%S, %N.toString())\n", argName, ph, argName)
                 } else {
-                    cb.add("        put(%S, %N.toString())\n", name, name)
+                    cb.add("        put(%S, %N.toString())\n", ph, argName)
                 }
             }
             cb.add("      })\n")
@@ -168,5 +169,28 @@ object CallGenerator {
                 else -> resourcePrefix.trimEnd('/') + endpoint.path
             }
         return fullPath
+    }
+
+    private fun findMatchingParam(
+        placeholder: String,
+        params: List<KSValueParameter>
+    ): KSValueParameter? {
+        // exact match
+        params.firstOrNull { it.name?.asString() == placeholder }?.let { return it }
+
+        // suffix match (e.g. placeholder "id" matches "postId")
+        params.firstOrNull {
+            val n = it.name?.asString() ?: return@firstOrNull false
+            n.endsWith(placeholder, ignoreCase = true)
+        }?.let { return it }
+
+        // prefix match (e.g. placeholder "user" matches "userId")
+        params.firstOrNull {
+            val n = it.name?.asString() ?: return@firstOrNull false
+            n.startsWith(placeholder, ignoreCase = true)
+        }?.let { return it }
+
+        // no matching parameter found
+        return null
     }
 }
