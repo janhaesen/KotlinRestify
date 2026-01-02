@@ -1,7 +1,6 @@
 package io.github.aeshen.restify.processor.generator
 
 import com.google.devtools.ksp.symbol.KSValueParameter
-import com.google.devtools.ksp.symbol.Nullability
 import com.squareup.kotlinpoet.ClassName
 import com.squareup.kotlinpoet.CodeBlock
 import com.squareup.kotlinpoet.ParameterizedTypeName
@@ -20,24 +19,18 @@ object CallGenerator {
 
         val requestClass = ClassName(RUNTIME_PACKAGE, "RequestData")
         val httpEnum = ClassName("$BASE_PACKAGE.annotation.http", "HttpMethod")
-        val responseMapper =
-            ClassName("$RUNTIME_PACKAGE.client.body", "ResponseMapper")
+        val responseMapper = ClassName("$RUNTIME_PACKAGE.client.body", "ResponseMapper")
         val responseData = ClassName(RUNTIME_PACKAGE, "ResponseData")
 
-        val bodyName =
-            endpoint.params.body
-                ?.name
-                ?.asString()
+        val bodyName = endpoint.params.body?.name?.asString()
 
-        // Build combined path: include resource-level prefix if present.
-        // Use the resource-level path (resourcePath) instead of the function path to avoid duplicating segments.
         val resourcePrefix = endpoint.resourcePath
         val fullPath = determineFullPath(resourcePrefix, endpoint)
 
         // Mapper creation (special-case Unit)
         if (returnTypeName == ClassName("kotlin", "Unit")) {
             cb.addStatement(
-                "  val mapper = object : %T<%T> { override suspend fun map(response: %T) = Unit }",
+                "val mapper = object : %T<%T> { override suspend fun map(response: %T) = Unit }",
                 responseMapper,
                 ClassName("kotlin", "Unit"),
                 responseData,
@@ -56,9 +49,7 @@ object CallGenerator {
                 val paramIsNullable = paramType.isNullable
                 val paramNonNull =
                     if (paramIsNullable) {
-                        paramType.copy(
-                            nullable = false,
-                        )
+                        paramType.copy(nullable = false)
                     } else {
                         paramType
                     }
@@ -69,7 +60,7 @@ object CallGenerator {
                         CodeBlock.of("%T.serializer()", paramNonNull)
                     }
                 cb.addStatement(
-                    "  val mapper = mapperFactory.forKotlinx(%T(%L))",
+                    "val mapper = mapperFactory.forKotlinx(%T(%L))",
                     listSerializerClass,
                     elemSerializerBlock,
                 )
@@ -77,80 +68,78 @@ object CallGenerator {
                 val rtIsNullable = returnTypeName.isNullable
                 if (rtIsNullable) {
                     val nonNullRt = returnTypeName.copy(nullable = false)
-                    val serializerBlock =
-                        CodeBlock.of("(%T.serializer()).nullable", nonNullRt)
-                    cb.addStatement("  val mapper = mapperFactory.forKotlinx(%L)", serializerBlock)
+                    val serializerBlock = CodeBlock.of("(%T.serializer()).nullable", nonNullRt)
+                    cb.addStatement("val mapper = mapperFactory.forKotlinx(%L)", serializerBlock)
                 } else {
                     cb.addStatement(
-                        "  val mapper = mapperFactory.forKotlinx(%T.serializer())",
+                        "val mapper = mapperFactory.forKotlinx(%T.serializer())",
                         returnTypeName,
                     )
                 }
             }
         }
 
-        // Build inline call with named args and inline RequestData.build { ... }
-        cb.add("  return@withContext caller.call(\n")
-        cb.add("    request = %T.build {\n", requestClass)
-        cb.add("      method(%T.%L)\n", httpEnum, methodName)
-        cb.add("      urlPath(%S)\n", fullPath)
+        // Start caller.call with inline RequestData.build { ... }
+        cb.add("return@withContext caller.call(\n")
+        cb.add("  request = %T.build {\n", requestClass)
+        cb.add("    method(%T.%L)\n", httpEnum, methodName)
+        cb.add("    urlPath(%S)\n", fullPath)
 
-        // Path parameters: scan placeholders and emit buildMap or emptyMap()
-        val placeholderRegex = "\\{([^}/]+)\\}".toRegex()
-        val placeholders =
-            placeholderRegex
-                .findAll(
-                    fullPath,
-                ).map { it.groupValues[1] }
-                .toList()
+        // Path parameters block as nested CodeBlock (safer formatting)
+        val placeholders = placeholderRegex.findAll(fullPath).map { it.groupValues[1] }.toList()
+
+        val pathParamsBlock = CodeBlock.builder()
         if (placeholders.isEmpty()) {
-            cb.add("      pathParameters(emptyMap())\n")
+            pathParamsBlock.add("    pathParameters(emptyMap())\n")
         } else {
-            cb.add("      pathParameters(buildMap {\n")
+            pathParamsBlock.add("    pathParameters(buildMap {\n")
             for (ph in placeholders) {
                 val matchedParam = findMatchingParam(ph, params)
-                val argName = matchedParam?.name?.asString() ?: ph
-                val nullable = matchedParam?.type?.resolve()?.nullability == Nullability.NULLABLE
+                val argName = matchedParam.argNameOr(ph)
+                val nullable = matchedParam.isNullableParam()
                 if (nullable) {
-                    cb.add("        if (%N != null) put(%S, %N.toString())\n", argName, ph, argName)
+                    pathParamsBlock.add("      if (%N != null) put(%S, %N.toString())\n", argName, ph, argName)
                 } else {
-                    cb.add("        put(%S, %N.toString())\n", ph, argName)
+                    pathParamsBlock.add("      put(%S, %N.toString())\n", ph, argName)
                 }
             }
-            cb.add("      })\n")
+            pathParamsBlock.add("    })\n")
         }
+        cb.add("%L", pathParamsBlock.build())
 
-        // Query parameters: use endpoint.params.query (pairs of qname -> KSValueParameter)
+        // Query parameters: build similarly
+        val queryParamsBlock = CodeBlock.builder()
         if (endpoint.params.query.isEmpty()) {
-            cb.add("      queryParameters(emptyMap())\n")
+            queryParamsBlock.add("    queryParameters(emptyMap())\n")
         } else {
-            cb.add("      queryParameters(buildMap {\n")
+            queryParamsBlock.add("    queryParameters(buildMap {\n")
             endpoint.params.query.forEachIndexed { idx, (qname, qparam) ->
-                val pname = qparam.name?.asString() ?: "param$idx"
-                val nullable = qparam.type.resolve().nullability == Nullability.NULLABLE
+                val pname = qparam.argNameOr("param$idx")
+                val nullable = qparam.isNullableParam()
                 if (nullable) {
-                    cb.add("        if (%N != null) put(%S, %N.toString())\n", pname, qname, pname)
+                    queryParamsBlock.add("      if (%N != null) put(%S, %N.toString())\n", pname, qname, pname)
                 } else {
-                    cb.add("        put(%S, %N.toString())\n", qname, pname)
+                    queryParamsBlock.add("      put(%S, %N.toString())\n", qname, pname)
                 }
             }
-            cb.add("      })\n")
+            queryParamsBlock.add("    })\n")
         }
+        cb.add("%L", queryParamsBlock.build())
 
         // Body if applicable
         if (endpoint.method == HttpMethod.GET || endpoint.method == HttpMethod.DELETE) {
             // no body
         } else {
             if (bodyName == null) {
-                cb.add("      body(null)\n")
+                cb.add("    body(null)\n")
             } else {
-                cb.add("      body(%N)\n", bodyName)
+                cb.add("    body(%N)\n", bodyName)
             }
         }
 
-        cb.add("    },\n")
-        cb.add("    mapper = mapper\n")
-        cb.add("  )\n")
+        cb.add("  },\n")
+        cb.add("  mapper = mapper\n")
+        cb.add(")\n")
 
         return cb.build()
     }
@@ -159,38 +148,11 @@ object CallGenerator {
         resourcePrefix: String,
         endpoint: EndpointAnalyzer.Endpoint
     ): String {
-        val fullPath =
-            when {
-                resourcePrefix.isBlank() -> endpoint.path
-
-                endpoint.path.startsWith(resourcePrefix) -> endpoint.path
-
-                // already includes prefix
-                else -> resourcePrefix.trimEnd('/') + endpoint.path
-            }
+        val fullPath = when {
+            resourcePrefix.isBlank() -> endpoint.path
+            endpoint.path.startsWith(resourcePrefix) -> endpoint.path
+            else -> resourcePrefix.trimEnd('/') + endpoint.path
+        }
         return fullPath
-    }
-
-    private fun findMatchingParam(
-        placeholder: String,
-        params: List<KSValueParameter>
-    ): KSValueParameter? {
-        // exact match
-        params.firstOrNull { it.name?.asString() == placeholder }?.let { return it }
-
-        // suffix match (e.g. placeholder "id" matches "postId")
-        params.firstOrNull {
-            val n = it.name?.asString() ?: return@firstOrNull false
-            n.endsWith(placeholder, ignoreCase = true)
-        }?.let { return it }
-
-        // prefix match (e.g. placeholder "user" matches "userId")
-        params.firstOrNull {
-            val n = it.name?.asString() ?: return@firstOrNull false
-            n.startsWith(placeholder, ignoreCase = true)
-        }?.let { return it }
-
-        // no matching parameter found
-        return null
     }
 }
