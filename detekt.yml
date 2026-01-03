@@ -788,7 +788,7 @@ style:
     UnnecessaryReversed:
         active: false
     UnusedImport:
-        active: false
+        active: true
         additionalOperatorSet: []
     UnusedParameter:
         active: true

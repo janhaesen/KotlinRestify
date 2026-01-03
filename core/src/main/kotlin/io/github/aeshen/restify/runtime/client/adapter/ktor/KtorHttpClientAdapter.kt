@@ -1,6 +1,7 @@
 package io.github.aeshen.restify.runtime.client.adapter.ktor
 
 import io.github.aeshen.restify.annotation.http.HttpMethod
+import io.github.aeshen.restify.annotation.http.MediaType
 import io.github.aeshen.restify.runtime.ApiConfig
 import io.github.aeshen.restify.runtime.RequestData
 import io.github.aeshen.restify.runtime.ResponseData
@@ -16,6 +17,7 @@ import io.ktor.client.request.url
 import io.ktor.client.statement.HttpResponse
 import io.ktor.client.statement.readRawBytes
 import io.ktor.http.ContentType
+import io.ktor.http.HttpHeaders
 import io.ktor.http.content.ByteArrayContent
 import io.ktor.http.content.TextContent
 import java.util.concurrent.atomic.AtomicBoolean
@@ -36,46 +38,27 @@ internal class KtorHttpClientAdapter(
         request: RequestData,
         config: ApiConfig,
     ): ResponseData {
-        // *Assume* request.urlPath is already the full URL (AdapterHttpClient must build it).
         val fullUrl = request.urlPath
 
-        // perform the HTTP request with Ktor using the provided full URL
         val response: HttpResponse =
             client.request {
                 url(fullUrl)
 
-                // map runtime HttpMethod -> Ktor HttpMethod
-                method =
-                    when (request.method) {
-                        HttpMethod.GET -> io.ktor.http.HttpMethod.Get
-                        HttpMethod.POST -> io.ktor.http.HttpMethod.Post
-                        HttpMethod.PUT -> io.ktor.http.HttpMethod.Put
-                        HttpMethod.DELETE -> io.ktor.http.HttpMethod.Delete
-                        HttpMethod.PATCH -> io.ktor.http.HttpMethod.Patch
-                        HttpMethod.HEAD -> io.ktor.http.HttpMethod.Head
-                        HttpMethod.OPTIONS -> throw UnsupportedOperationException()
-                    }
+                method = mapHttpMethod(request)
 
-                // Request.headers are expected to be final (AdapterHttpClient merges default headers)
                 headers {
                     request.headers.forEach { (k, v) -> append(k, v) }
                 }
 
-                // timeouts (if provided)
                 config.timeoutMillis?.let {
-                    // ensure plugin available in client; safe no-op if already
-                    // this@request.plugins.install(HttpTimeout)
                     timeout {
                         requestTimeoutMillis = it
                     }
                 }
 
-                // set body if present (adapter receives serialized payload)
                 request.body?.let { payload ->
                     when (payload) {
-                        is ByteArray -> {
-                            setBody(ByteArrayContent(payload))
-                        }
+                        is ByteArray -> setBody(ByteArrayContent(payload))
 
                         is String -> {
                             val ctHeader = request.headers["Content-Type"]
@@ -85,9 +68,7 @@ internal class KtorHttpClientAdapter(
                             setBody(TextContent(payload, ct))
                         }
 
-                        else -> {
-                            setBody(payload)
-                        }
+                        else -> setBody(payload)
                     }
                 }
             }
@@ -96,16 +77,25 @@ internal class KtorHttpClientAdapter(
         val status = response.status.value
         val respHeaders =
             response.headers.entries().associate {
-                it.key to
-                    it.value.joinToString(",")
+                it.key to it.value.joinToString(",")
             }
 
         return ResponseData(
             statusCode = status,
             headers = respHeaders,
             body = bytes,
-            contentType = null,
+            contentType = respHeaders[HttpHeaders.ContentType]?.let { MediaType.valueOf(it) },
         )
+    }
+
+    private fun mapHttpMethod(request: RequestData): io.ktor.http.HttpMethod = when (request.method) {
+        HttpMethod.GET -> io.ktor.http.HttpMethod.Get
+        HttpMethod.POST -> io.ktor.http.HttpMethod.Post
+        HttpMethod.PUT -> io.ktor.http.HttpMethod.Put
+        HttpMethod.DELETE -> io.ktor.http.HttpMethod.Delete
+        HttpMethod.PATCH -> io.ktor.http.HttpMethod.Patch
+        HttpMethod.HEAD -> io.ktor.http.HttpMethod.Head
+        HttpMethod.OPTIONS -> throw UnsupportedOperationException()
     }
 
     override fun close() {
