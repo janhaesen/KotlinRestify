@@ -65,7 +65,8 @@ internal class AdapterHttpClient(
             headers["Content-Type"] = serialized.contentType
         }
 
-        // Create a request copy for the adapter with serialized body & final headers; query params no longer needed downstream
+        // Create a request copy for the adapter with serialized body & final headers; query
+        // params no longer needed downstream
         val adapterRequest =
             request.copy(
                 urlPath = fullUrl,

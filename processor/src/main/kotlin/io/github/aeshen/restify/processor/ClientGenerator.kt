@@ -53,7 +53,8 @@ class ClientGenerator(
                 .builder(
                     "caller",
                     ClassName(RUNTIME_PACKAGE, "ApiCaller"),
-                ).build()
+                )
+                .build()
 
         val mapperFactoryParam =
             ParameterSpec
@@ -63,14 +64,16 @@ class ClientGenerator(
                         "$RUNTIME_PACKAGE.client.body",
                         "ResponseMapperFactory",
                     ),
-                ).build()
+                )
+                .build()
 
         val dispatcherParam =
             ParameterSpec
                 .builder(
                     "dispatcher",
                     ClassName("kotlinx.coroutines", "CoroutineDispatcher"),
-                ).defaultValue("%T.IO", ClassName("kotlinx.coroutines", "Dispatchers"))
+                )
+                .defaultValue("%T.IO", ClassName("kotlinx.coroutines", "Dispatchers"))
                 .build()
 
         val clientClassBuilder =
@@ -102,43 +105,45 @@ class ClientGenerator(
         mapperFactoryParam: ParameterSpec,
         dispatcherParam: ParameterSpec,
         containerName: String,
-    ): TypeSpec.Builder {
-        val clientClassBuilder =
-            TypeSpec
-                .classBuilder(clientClassName)
-                .addAnnotation(
-                    AnnotationSpec
-                        .builder(ClassName("javax.annotation.processing", "Generated"))
-                        .addMember("%S", "KotlinRestifyProcessor")
-                        .build(),
-                ).primaryConstructor(
-                    FunSpec
-                        .constructorBuilder()
-                        .addParameter(callerParam)
-                        .addParameter(mapperFactoryParam)
-                        .addParameter(dispatcherParam)
-                        .build(),
-                ).addProperty(
-                    PropertySpec
-                        .builder("caller", callerParam.type)
-                        .initializer("caller")
-                        .addModifiers(KModifier.PRIVATE)
-                        .build(),
-                ).addProperty(
-                    PropertySpec
-                        .builder("mapperFactory", mapperFactoryParam.type)
-                        .initializer("mapperFactory")
-                        .addModifiers(KModifier.PRIVATE)
-                        .build(),
-                ).addProperty(
-                    PropertySpec
-                        .builder("dispatcher", dispatcherParam.type)
-                        .initializer("dispatcher")
-                        .addModifiers(KModifier.PRIVATE)
-                        .build(),
-                ).addSuperinterface(ClassName.bestGuess(containerName))
-        return clientClassBuilder
-    }
+    ): TypeSpec.Builder =
+        TypeSpec
+            .classBuilder(clientClassName)
+            .addAnnotation(
+                AnnotationSpec
+                    .builder(ClassName("javax.annotation.processing", "Generated"))
+                    .addMember("%S", "KotlinRestifyProcessor")
+                    .build(),
+            )
+            .primaryConstructor(
+                FunSpec
+                    .constructorBuilder()
+                    .addParameter(callerParam)
+                    .addParameter(mapperFactoryParam)
+                    .addParameter(dispatcherParam)
+                    .build(),
+            )
+            .addProperty(
+                PropertySpec
+                    .builder("caller", callerParam.type)
+                    .initializer("caller")
+                    .addModifiers(KModifier.PRIVATE)
+                    .build(),
+            )
+            .addProperty(
+                PropertySpec
+                    .builder("mapperFactory", mapperFactoryParam.type)
+                    .initializer("mapperFactory")
+                    .addModifiers(KModifier.PRIVATE)
+                    .build(),
+            )
+            .addProperty(
+                PropertySpec
+                    .builder("dispatcher", dispatcherParam.type)
+                    .initializer("dispatcher")
+                    .addModifiers(KModifier.PRIVATE)
+                    .build(),
+            )
+            .addSuperinterface(ClassName.bestGuess(containerName))
 
     private fun buildFunction(endpoint: EndpointAnalyzer.Endpoint): FunSpec {
         val fn = endpoint.function
@@ -179,7 +184,8 @@ class ClientGenerator(
                 deps,
                 generatedPackage,
                 fileSpec.name,
-            ).bufferedWriter()
+            )
+            .bufferedWriter()
             .use { writer ->
                 fileSpec.writeTo(writer)
             }

@@ -24,7 +24,7 @@ class TimeBoundRetryPolicy(
         require(maxAttempts >= 1) { "maxAttempts must be >= 1" }
     }
 
-    @Suppress("TooGenericExceptionCaught")
+    @Suppress("TooGenericExceptionCaught", "ThrowsCount")
     override suspend fun <T> retry(block: suspend () -> T): T {
         return withTimeout(timeoutMillis) {
             var attempt = 0

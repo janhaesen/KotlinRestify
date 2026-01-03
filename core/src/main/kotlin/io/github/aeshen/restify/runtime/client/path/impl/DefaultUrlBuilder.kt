@@ -24,11 +24,14 @@ internal object DefaultUrlBuilder : UrlBuilder {
                 .joinToString(
                     "&",
                 ) { (k, v) ->
-                    "${URLEncoder.encode(
-                        k,
-                        "UTF-8",
-                    )}=${URLEncoder.encode(v!!, "UTF-8")}"
-                }.let {
+                    "${
+                        URLEncoder.encode(
+                            k,
+                            "UTF-8",
+                        )
+                    }=${URLEncoder.encode(v!!, "UTF-8")}"
+                }
+                .let {
                     if (it.isEmpty()) {
                         ""
                     } else {

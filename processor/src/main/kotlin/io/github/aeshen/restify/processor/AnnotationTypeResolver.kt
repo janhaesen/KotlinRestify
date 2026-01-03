@@ -35,7 +35,8 @@ class AnnotationTypeResolver {
             resolver
                 .getClassDeclarationByName(
                     resolver.getKSNameFromString(Resource::class.qualifiedName ?: return),
-                )?.asStarProjectedType()
+                )
+                ?.asStarProjectedType()
 
         val restDecl = restEndpointInternal?.declaration
         val resolvedPackage = restDecl?.packageName?.asString().orEmpty()
@@ -112,7 +113,8 @@ class AnnotationTypeResolver {
                 } catch (_: Exception) {
                     null
                 } ?: continue
-            val decl = resolver.getClassDeclarationByName(name) ?: continue
+            val decl = resolver.getClassDeclarationByName(name)
+                ?: continue
             return decl.asStarProjectedType()
         }
         return null

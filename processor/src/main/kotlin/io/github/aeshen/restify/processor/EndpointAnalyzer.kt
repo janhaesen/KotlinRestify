@@ -45,7 +45,8 @@ class EndpointAnalyzer {
         val httpMethod =
             types.httpMethodAnnos.entries
                 .firstOrNull { it.value.declaration == annoDecl }
-                ?.key ?: HttpMethod.GET // fallback (should not happen)
+                ?.key
+                ?: HttpMethod.GET // fallback (should not happen)
 
         // read path safely from the HTTP method annotation (fallback to "/" when absent)
         val path = methodAnno.getStringArg("path") ?: "/"
@@ -68,7 +69,8 @@ class EndpointAnalyzer {
             decl.annotations.firstOrNull {
                 it.annotationType
                     .resolve()
-                    .declaration.qualifiedName
+                    .declaration
+                    .qualifiedName
                     ?.asString() ==
                     "$BASE_PACKAGE.annotation.http.Resource"
             } ?: return ""

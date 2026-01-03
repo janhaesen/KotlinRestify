@@ -11,7 +11,10 @@ internal object PayloadUtils {
      * Handles ByteArray, String, InputStream, ByteBuffer and falls back to toString().
      */
     fun toByteArray(raw: Any?): ByteArray? {
-        if (raw == null) return null
+        if (raw == null) {
+            return null
+        }
+
         return when (raw) {
             is ByteArray -> {
                 raw

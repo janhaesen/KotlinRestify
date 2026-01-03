@@ -59,7 +59,8 @@ class EndpointValidator {
                     // prefer explicit @Path('name') argument; fallback to parameter name
                     val ann = types.pathAnno?.let { firstMatchingAnnotation(p, listOf(it)) }
                     ann?.getStringArg("name") ?: p.name?.asString()
-                }.toSet()
+                }
+                .toSet()
 
         val missing = placeholders - pathParamNames
         if (missing.isNotEmpty()) {

@@ -10,6 +10,8 @@ internal class JacksonBodySerializer(
     private val objectMapper: ObjectMapper = ObjectMapper(),
 ) : BaseBodySerializer(),
     BodySerializer {
+
+    @Suppress("TooGenericExceptionCaught")
     override fun serialize(
         body: Any?,
         requestedContentType: MediaType?,

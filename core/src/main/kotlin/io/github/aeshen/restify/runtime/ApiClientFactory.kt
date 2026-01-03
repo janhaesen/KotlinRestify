@@ -17,6 +17,7 @@ import kotlin.reflect.KClass
 import kotlin.reflect.KFunction
 import kotlin.reflect.KParameter
 
+@Suppress("TooManyFunctions")
 object ApiClientFactory {
     fun builder(): Builder = Builder()
 
@@ -99,7 +100,8 @@ object ApiClientFactory {
             val baseCfg =
                 configProvider?.invoke()
                     ?: throw IllegalStateException(
-                        "ApiConfig must be provided via Builder.config(ApiConfig), Builder.config(baseUrl, block) or Builder.configSupplier(...)",
+                        "ApiConfig must be provided via Builder.config(ApiConfig), " +
+                            "Builder.config(baseUrl, block) or Builder.configSupplier(...)",
                     )
 
             val resolvedRetry =
@@ -266,7 +268,8 @@ object ApiClientFactory {
         }
 
         /**
-         * Helper to reconstruct the ApiConfig used by the managed transport (useful for passing into generated client constructors).
+         * Helper to reconstruct the ApiConfig used by the managed transport (useful for passing
+         * into generated client constructors).
          */
         fun toApiConfig(): ApiConfig = apiConfigSupplier()
     }

@@ -6,8 +6,10 @@ import io.github.aeshen.restify.runtime.client.body.serializer.SerializedBody
 /**
  * Base helper for concrete BodySerializer implementations.
  *
- * - handleSimpleTypes: serializes ByteArray, String, Number/Boolean/Char and `null` to an appropriate SerializedBody.
- * - handleSimpleDeserialize: turns ByteArray/String/null into ByteArray?; returns null for other types so callers may handle complex cases.
+ * - handleSimpleTypes: serializes ByteArray, String, Number/Boolean/Char and `null` to an
+ *  appropriate SerializedBody.
+ * - handleSimpleDeserialize: turns ByteArray/String/null into ByteArray?; returns null for other
+ *  types so callers may handle complex cases.
  */
 internal abstract class BaseBodySerializer {
     protected fun handleSimpleTypes(

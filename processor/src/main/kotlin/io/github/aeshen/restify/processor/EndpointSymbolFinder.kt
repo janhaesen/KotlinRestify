@@ -39,16 +39,17 @@ class EndpointSymbolFinder(
             .filterIsInstance<KSClassDeclaration>()
             .forEach { cls ->
                 val functions =
-                    cls
-                        .getDeclaredFunctions()
+                    cls.getDeclaredFunctions()
                         .filter { fn ->
                             fn.annotations.any { ann ->
                                 methodDecls.contains(ann.annotationType.resolve().declaration)
                             }
-                        }.toList()
+                        }
+                        .toList()
 
                 if (functions.isNotEmpty()) {
-                    val key = cls.qualifiedName?.asString() ?: "<anonymous>"
+                    val key = cls.qualifiedName?.asString()
+                        ?: "<anonymous>"
                     val list = result.getOrPut(key) { mutableListOf() }
                     functions.forEach { fn -> addIfNew(list, seenSignatures, fn) }
                 }
@@ -85,13 +86,16 @@ class EndpointSymbolFinder(
     }
 
     private fun signature(fn: KSFunctionDeclaration): String {
-        val parent = fn.parentDeclaration?.qualifiedName?.asString() ?: "<top-level>"
+        val parent = fn.parentDeclaration?.qualifiedName?.asString()
+            ?: "<top-level>"
         val params =
             fn.parameters.joinToString(",") { p ->
                 p.type
                     .resolve()
-                    .declaration.qualifiedName
-                    ?.asString() ?: p.type.resolve().toString()
+                    .declaration
+                    .qualifiedName
+                    ?.asString()
+                    ?: p.type.resolve().toString()
             }
         return "$parent#${fn.simpleName.asString()}($params)"
     }

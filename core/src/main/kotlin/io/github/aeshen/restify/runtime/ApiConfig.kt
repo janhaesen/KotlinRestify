@@ -68,7 +68,9 @@ data class ApiConfig(
  * - other optional fields prefer override when present, otherwise keep base.
  */
 internal fun ApiConfig.mergeWith(override: ApiConfig?): ApiConfig {
-    if (override == null) return this
+    if (override == null) {
+        return this
+    }
 
     return this.copy(
         baseUrl = override.baseUrl.ifBlank { this.baseUrl },

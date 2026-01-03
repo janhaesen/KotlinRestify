@@ -51,7 +51,8 @@ object JsonProviders {
                 SimpleModule("OptionalFieldModule")
                     .addSerializer(OptionalField::class.java, OptionalFieldJacksonSerializer())
                     .addDeserializer(OptionalField::class.java, OptionalFieldJacksonDeserializer()),
-            ).build()
+            )
+            .build()
 }
 
 class JsonPlaceholderApiClientIntegrationTest {
