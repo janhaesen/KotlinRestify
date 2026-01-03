@@ -40,7 +40,10 @@ class JacksonResponseMapperFactory(
             javaType,
             when (key) {
                 is TypeKey.ClassKey -> key.nullable
-                is TypeKey.ListKey -> false // lists are represented as concrete List<T>; nullability is expressed with ClassKey where used
+
+                // lists are represented as concrete List<T>; nullability is expressed with
+                // ClassKey where used
+                is TypeKey.ListKey -> false
             },
         )
     }
