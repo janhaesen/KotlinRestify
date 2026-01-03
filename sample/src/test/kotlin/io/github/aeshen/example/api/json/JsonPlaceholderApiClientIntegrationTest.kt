@@ -4,12 +4,11 @@ import io.github.aeshen.example.api.json.JsonProviders.createJacksonJsonProvider
 import io.github.aeshen.example.api.json.JsonProviders.kotlinJsonProvider
 import io.github.aeshen.restify.generated.JsonPlaceholderApiClient
 import io.github.aeshen.restify.runtime.ApiClientFactory
-import io.github.aeshen.restify.runtime.ApiConfig
+import io.github.aeshen.restify.runtime.client.body.BodySerializerFactory.createKotlinxBodySerializer
 import io.github.aeshen.restify.runtime.serialization.OptionalField
 import io.github.aeshen.restify.runtime.serialization.jackson.JacksonResponseMapperFactory
 import io.github.aeshen.restify.runtime.serialization.jackson.OptionalFieldJacksonDeserializer
 import io.github.aeshen.restify.runtime.serialization.jackson.OptionalFieldJacksonSerializer
-import io.github.aeshen.restify.runtime.serialization.kotlinx.KotlinxBodySerializer
 import io.github.aeshen.restify.runtime.serialization.kotlinx.KotlinxResponseMapperFactory
 import java.util.stream.Stream
 import kotlin.test.assertNotNull
@@ -17,9 +16,7 @@ import kotlin.test.assertTrue
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import org.junit.jupiter.api.Test
-import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
-import org.junit.jupiter.params.provider.MethodSource
 import tools.jackson.databind.DeserializationFeature
 import tools.jackson.databind.ObjectMapper
 import tools.jackson.databind.json.JsonMapper
@@ -68,8 +65,8 @@ class JsonPlaceholderApiClientIntegrationTest {
 
     class JsonPlaceholderApiClientIntegrationTest {
         private fun providerModes(): List<Pair<String, Boolean>> = listOf(
-            // "jackson" to true,
-            // "jackson" to false,
+            "jackson" to true,
+            "jackson" to false,
             "kotlinx" to true,
             "kotlinx" to false,
         )
@@ -86,7 +83,7 @@ class JsonPlaceholderApiClientIntegrationTest {
 
             val builder = ApiClientFactory.builder()
                 .config("https://jsonplaceholder.typicode.com") {
-                    bodySerializer = KotlinxBodySerializer(kotlinJsonProvider)
+                    bodySerializer = createKotlinxBodySerializer(kotlinJsonProvider)
                 }
 
             val configured = if (useExplicitFactory) {

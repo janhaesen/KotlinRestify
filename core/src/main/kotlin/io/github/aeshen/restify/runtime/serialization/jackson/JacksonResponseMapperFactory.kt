@@ -1,6 +1,7 @@
 package io.github.aeshen.restify.runtime.serialization.jackson
 
 import io.github.aeshen.restify.runtime.ResponseData
+import io.github.aeshen.restify.runtime.client.body.PayloadUtils
 import io.github.aeshen.restify.runtime.client.body.ResponseMapper
 import io.github.aeshen.restify.runtime.client.body.ResponseMapperFactory
 import io.github.aeshen.restify.runtime.client.body.TypeKey
@@ -39,7 +40,7 @@ class JacksonResponseMapperFactory(
 
     private fun <T> createMapper(javaType: JavaType, nullable: Boolean): ResponseMapper<T> =
         ResponseMapper { response: ResponseData ->
-            val bytes = response.body ?: ByteArray(0)
+            val bytes = PayloadUtils.bytesOrEmpty(response.body)
 
             // Empty body handling:
             // - if nullable: return null immediately
@@ -66,4 +67,3 @@ class JacksonResponseMapperFactory(
             )
         }
 }
-

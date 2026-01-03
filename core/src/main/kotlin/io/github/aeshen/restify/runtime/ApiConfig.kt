@@ -50,3 +50,23 @@ data class ApiConfig(
             )
     }
 }
+
+/**
+ * Helpers to merge ApiConfig instances in a single place.
+ *
+ * - `baseUrl` from override is used only when non-blank.
+ * - `defaultHeaders` are combined: base first, then override (override wins on same keys).
+ * - other optional fields prefer override when present, otherwise keep base.
+ */
+internal fun ApiConfig.mergeWith(override: ApiConfig?): ApiConfig {
+    if (override == null) return this
+
+    return this.copy(
+        baseUrl = override.baseUrl.ifBlank { this.baseUrl },
+        defaultHeaders = this.defaultHeaders + override.defaultHeaders,
+        timeoutMillis = override.timeoutMillis ?: this.timeoutMillis,
+        bodySerializer = override.bodySerializer ?: this.bodySerializer,
+        retryPolicy = override.retryPolicy ?: this.retryPolicy,
+        followRedirects = override.followRedirects,
+    )
+}

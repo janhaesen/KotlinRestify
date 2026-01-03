@@ -12,14 +12,10 @@ import io.github.aeshen.restify.runtime.retry.TimeBoundRetryPolicy
  * applies the configured retry policy and then maps the response.
  *
  * - `transport` is the AdapterHttpClient (wraps HttpClientAdapter + ApiConfig).
- * The caller no longer reads `transport.baseConfig` directly; it asks the transport for the effective retry policy.
+ * The caller asks the transport for the effective retry policy and expects it to be present.
  */
 internal class DefaultApiCaller(
     private val transport: AdapterHttpClient,
-    private val fallbackRetryPolicy: RetryPolicy =
-        TimeBoundRetryPolicy(
-            DEFAULT_TIMEOUT_MILLIS,
-        ),
 ) : ApiCaller {
     override suspend fun <T> call(
         request: RequestData,
@@ -27,7 +23,10 @@ internal class DefaultApiCaller(
     ): T {
         // derive the effective retry policy via the transport (narrow surface)
         val retryPolicy: RetryPolicy =
-            transport.effectiveRetryPolicyFor(request) ?: fallbackRetryPolicy
+            transport.effectiveRetryPolicyFor(request)
+                ?: throw IllegalStateException(
+                    "RetryPolicy not resolved. Ensure ApiClientFactory provides a resolved retryPolicy on ApiConfig"
+                )
 
         val response =
             retryPolicy.retry {

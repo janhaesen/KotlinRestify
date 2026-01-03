@@ -20,7 +20,7 @@ import io.ktor.http.content.ByteArrayContent
 import io.ktor.http.content.TextContent
 import java.util.concurrent.atomic.AtomicBoolean
 
-class KtorHttpClientAdapter(
+internal class KtorHttpClientAdapter(
     private val client: HttpClient = defaultClient(),
 ) : HttpClientAdapter {
     companion object {
@@ -56,15 +56,15 @@ class KtorHttpClientAdapter(
                         HttpMethod.OPTIONS -> TODO()
                     }
 
-                // merge config default headers first, then request headers override
+                // Request.headers are expected to be final (AdapterHttpClient merges default headers)
                 headers {
-                    config.defaultHeaders.forEach { (k, v) -> append(k, v) }
                     request.headers.forEach { (k, v) -> append(k, v) }
                 }
 
                 // timeouts (if provided)
                 config.timeoutMillis?.let {
-                    // this@request.plugins.install(HttpTimeout) // ensure plugin available in client; safe no-op if already
+                    // ensure plugin available in client; safe no-op if already
+                    // this@request.plugins.install(HttpTimeout)
                     timeout {
                         requestTimeoutMillis = it
                     }
@@ -104,7 +104,7 @@ class KtorHttpClientAdapter(
             statusCode = status,
             headers = respHeaders,
             body = bytes,
-            contentType = null, // keep simple; mapping to runtime MediaType can be added if needed
+            contentType = null,
         )
     }
 

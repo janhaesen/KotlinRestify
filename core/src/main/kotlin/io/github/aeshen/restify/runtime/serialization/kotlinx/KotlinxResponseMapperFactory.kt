@@ -1,6 +1,7 @@
 package io.github.aeshen.restify.runtime.serialization.kotlinx
 
 import io.github.aeshen.restify.runtime.ResponseData
+import io.github.aeshen.restify.runtime.client.body.PayloadUtils
 import io.github.aeshen.restify.runtime.client.body.ResponseMapper
 import io.github.aeshen.restify.runtime.client.body.ResponseMapperFactory
 import io.github.aeshen.restify.runtime.client.body.TypeKey
@@ -68,8 +69,6 @@ class KotlinxResponseMapperFactory(
             json.decodeFromString(s, str)
         }
 
-    private fun responseBodyAsString(response: ResponseData): String {
-        val bytes = response.body ?: throw IllegalStateException("Response body is not present")
-        return String(bytes, DEFAULT_CHARSET)
-    }
+    private fun responseBodyAsString(response: ResponseData): String =
+        PayloadUtils.bytesToString(response.body, DEFAULT_CHARSET)
 }

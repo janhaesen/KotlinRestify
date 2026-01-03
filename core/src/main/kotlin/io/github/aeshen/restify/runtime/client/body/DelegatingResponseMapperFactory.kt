@@ -3,7 +3,7 @@ package io.github.aeshen.restify.runtime.client.body
 /**
  * Delegating factory: tries registered providers in order and throws when none can handle the key.
  */
-class DelegatingResponseMapperFactory(
+internal class DelegatingResponseMapperFactory(
     private val factories: List<ResponseMapperFactory>,
 ) : ResponseMapperFactory {
 

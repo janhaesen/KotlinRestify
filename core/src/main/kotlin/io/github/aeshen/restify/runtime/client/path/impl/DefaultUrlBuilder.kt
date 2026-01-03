@@ -4,7 +4,7 @@ import io.github.aeshen.restify.runtime.client.path.UrlBuilder
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 
-object DefaultUrlBuilder : UrlBuilder {
+internal object DefaultUrlBuilder : UrlBuilder {
     override fun build(
         baseUrl: String,
         pathTemplate: String,

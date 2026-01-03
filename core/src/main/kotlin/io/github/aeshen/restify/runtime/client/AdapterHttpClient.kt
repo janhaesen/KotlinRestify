@@ -8,6 +8,7 @@ import io.github.aeshen.restify.runtime.client.body.BodySerializer
 import io.github.aeshen.restify.runtime.client.body.DefaultBodySerializer
 import io.github.aeshen.restify.runtime.client.path.UrlBuilder
 import io.github.aeshen.restify.runtime.client.path.impl.DefaultUrlBuilder
+import io.github.aeshen.restify.runtime.mergeWith
 import io.github.aeshen.restify.runtime.retry.RetryPolicy
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -33,7 +34,7 @@ internal class AdapterHttpClient(
 
     suspend fun execute(request: RequestData): ResponseData {
         // Merge configuration first (so UrlBuilder can receive effective baseUrl)
-        val cfg = mergeConfig(baseConfig, request.perRequestConfig)
+        val cfg = baseConfig.mergeWith(request.perRequestConfig)
         val serializer: BodySerializer = cfg.bodySerializer ?: DefaultBodySerializer
 
         // Transport resolves the final URL from template + path params + nullable query params
@@ -47,15 +48,15 @@ internal class AdapterHttpClient(
 
         val serialized = serializer.serialize(request.body, request.contentType)
 
-        // Merge headers and set Content-Type when serializer provided a content type (unless
-        // caller already set it)
-        val headers = request.headers.toMutableMap()
+        // Merge config default headers first, then request headers override
+        val headers = cfg.defaultHeaders.toMutableMap().apply { putAll(request.headers) }
+
+        // Set Content-Type when serializer provided a content type (unless caller already set it)
         if (serialized.contentType != null && headers["Content-Type"] == null) {
             headers["Content-Type"] = serialized.contentType
         }
 
-        // Create a request copy for the adapter with serialized body & headers; query params no
-        // longer needed downstream
+        // Create a request copy for the adapter with serialized body & final headers; query params no longer needed downstream
         val adapterRequest =
             request.copy(
                 urlPath = fullUrl,
@@ -71,8 +72,8 @@ internal class AdapterHttpClient(
     }
 
     fun effectiveRetryPolicyFor(request: RequestData?): RetryPolicy? {
-        val cfg = mergeConfig(baseConfig, request?.perRequestConfig)
-        return cfg.retryPolicy
+        return baseConfig.mergeWith(request?.perRequestConfig)
+            .retryPolicy
     }
 
     fun closeAdapter() {
@@ -82,25 +83,5 @@ internal class AdapterHttpClient(
             } catch (_: Throwable) {
             }
         }
-    }
-
-    private fun mergeConfig(
-        base: ApiConfig,
-        override: ApiConfig?,
-    ): ApiConfig {
-        if (override == null) {
-            return base
-        }
-        return base.copy(
-            baseUrl =
-                override.baseUrl.ifBlank {
-                    base.baseUrl
-                },
-            defaultHeaders = base.defaultHeaders + override.defaultHeaders,
-            timeoutMillis = override.timeoutMillis ?: base.timeoutMillis,
-            bodySerializer = override.bodySerializer ?: base.bodySerializer,
-            retryPolicy = override.retryPolicy ?: base.retryPolicy,
-            followRedirects = override.followRedirects,
-        )
     }
 }
