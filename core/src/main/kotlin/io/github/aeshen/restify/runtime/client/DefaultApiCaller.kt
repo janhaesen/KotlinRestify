@@ -19,6 +19,8 @@ import kotlinx.coroutines.ensureActive
 internal class DefaultApiCaller(
     private val transport: AdapterHttpClient,
 ) : ApiCaller {
+
+    @Suppress("TooGenericExceptionCaught")
     override suspend fun <T> call(
         request: RequestData,
         mapper: ResponseMapper<T>,

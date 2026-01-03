@@ -58,7 +58,9 @@ internal class KtorHttpClientAdapter(
 
                 request.body?.let { payload ->
                     when (payload) {
-                        is ByteArray -> setBody(ByteArrayContent(payload))
+                        is ByteArray -> {
+                            setBody(ByteArrayContent(payload))
+                        }
 
                         is String -> {
                             val ctHeader = request.headers["Content-Type"]
@@ -68,7 +70,9 @@ internal class KtorHttpClientAdapter(
                             setBody(TextContent(payload, ct))
                         }
 
-                        else -> setBody(payload)
+                        else -> {
+                            setBody(payload)
+                        }
                     }
                 }
             }
