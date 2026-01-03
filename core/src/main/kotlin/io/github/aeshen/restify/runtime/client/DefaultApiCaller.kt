@@ -1,11 +1,9 @@
 package io.github.aeshen.restify.runtime.client
 
 import io.github.aeshen.restify.runtime.ApiCaller
-import io.github.aeshen.restify.runtime.DEFAULT_TIMEOUT_MILLIS
 import io.github.aeshen.restify.runtime.RequestData
 import io.github.aeshen.restify.runtime.client.body.ResponseMapper
 import io.github.aeshen.restify.runtime.retry.RetryPolicy
-import io.github.aeshen.restify.runtime.retry.TimeBoundRetryPolicy
 
 /**
  * Simplified ApiCaller that delegates to a single transport execution method,

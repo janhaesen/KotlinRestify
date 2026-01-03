@@ -53,96 +53,85 @@ object JsonProviders {
 }
 
 class JsonPlaceholderApiClientIntegrationTest {
-    companion object {
-        @JvmStatic
-        fun providerModes(): Stream<Arguments> = Stream.of(
-            Arguments.of("jackson", true),
-            Arguments.of("jackson", false),
-            Arguments.of("kotlinx", true),
-            Arguments.of("kotlinx", false),
-        )
+    private fun providerModes(): List<Pair<String, Boolean>> = listOf(
+        "jackson" to true,
+        "jackson" to false,
+        "kotlinx" to true,
+        "kotlinx" to false,
+    )
+
+    private fun buildClient(
+        providerName: String,
+        useExplicitFactory: Boolean
+    ): JsonPlaceholderApiClient {
+        val mapperFactory = when (providerName) {
+            "jackson" -> JacksonResponseMapperFactory(createObjectMapper())
+            "kotlinx" -> KotlinxResponseMapperFactory(kotlinJsonProvider)
+            else -> throw IllegalArgumentException("unknown provider: $providerName")
+        }
+
+        val builder = ApiClientFactory.builder()
+            .config("https://jsonplaceholder.typicode.com") {
+                bodySerializer = createKotlinxBodySerializer(kotlinJsonProvider)
+            }
+
+        val configured = if (useExplicitFactory) {
+            builder.responseMapperFactory(mapperFactory)
+        } else {
+            builder.addResponseMapperFactory(mapperFactory)
+        }
+
+        return configured.createClient(JsonPlaceholderApiClient::class)
     }
 
-    class JsonPlaceholderApiClientIntegrationTest {
-        private fun providerModes(): List<Pair<String, Boolean>> = listOf(
-            "jackson" to true,
-            "jackson" to false,
-            "kotlinx" to true,
-            "kotlinx" to false,
-        )
-
-        private fun buildClient(
-            providerName: String,
-            useExplicitFactory: Boolean
-        ): JsonPlaceholderApiClient {
-            val mapperFactory = when (providerName) {
-                "jackson" -> JacksonResponseMapperFactory(createObjectMapper())
-                "kotlinx" -> KotlinxResponseMapperFactory(kotlinJsonProvider)
-                else -> throw IllegalArgumentException("unknown provider: $providerName")
-            }
-
-            val builder = ApiClientFactory.builder()
-                .config("https://jsonplaceholder.typicode.com") {
-                    bodySerializer = createKotlinxBodySerializer(kotlinJsonProvider)
-                }
-
-            val configured = if (useExplicitFactory) {
-                builder.responseMapperFactory(mapperFactory)
-            } else {
-                builder.addResponseMapperFactory(mapperFactory)
-            }
-
-            return configured.createClient(JsonPlaceholderApiClient::class)
+    @Test
+    fun getPosts_returnsNonEmptyList() = runBlocking {
+        for ((provider, explicit) in providerModes()) {
+            val client = buildClient(provider, explicit)
+            val posts = client.getPosts()
+            assertTrue(posts.isNotEmpty(), "Expected non-empty posts for provider=$provider explicit=$explicit")
         }
+    }
 
-        @Test
-        fun getPosts_returnsNonEmptyList() = runBlocking {
-            for ((provider, explicit) in providerModes()) {
-                val client = buildClient(provider, explicit)
-                val posts = client.getPosts()
-                assertTrue(posts.isNotEmpty(), "Expected non-empty posts for provider=$provider explicit=$explicit")
-            }
+    @Test
+    fun getPostById_returnsPost() = runBlocking {
+        for ((provider, explicit) in providerModes()) {
+            val client = buildClient(provider, explicit)
+            val posts = client.getPosts()
+            val firstId = posts.first().id.getOrNull()
+            assertNotNull(firstId, "Expected first post to have an id for provider=$provider explicit=$explicit")
+            val post = client.getPost(firstId)
+            assertNotNull(post, "Expected getPost to return a post for provider=$provider explicit=$explicit")
         }
+    }
 
-        @Test
-        fun getPostById_returnsPost() = runBlocking {
-            for ((provider, explicit) in providerModes()) {
-                val client = buildClient(provider, explicit)
-                val posts = client.getPosts()
-                val firstId = posts.first().id.getOrNull()
-                assertNotNull(firstId, "Expected first post to have an id for provider=$provider explicit=$explicit")
-                val post = client.getPost(firstId)
-                assertNotNull(post, "Expected getPost to return a post for provider=$provider explicit=$explicit")
-            }
+    @Test
+    fun getCommentsForPost_returnsList() = runBlocking {
+        for ((provider, explicit) in providerModes()) {
+            val client = buildClient(provider, explicit)
+            val posts = client.getPosts()
+            val firstId = posts.first().id.getOrNull()
+            assertNotNull(firstId, "Expected first post to have an id for provider=$provider explicit=$explicit")
+            val comments = client.getComments(firstId)
+            assertTrue(comments.isNotEmpty(), "Expected comments for provider=$provider explicit=$explicit")
         }
+    }
 
-        @Test
-        fun getCommentsForPost_returnsList() = runBlocking {
-            for ((provider, explicit) in providerModes()) {
-                val client = buildClient(provider, explicit)
-                val posts = client.getPosts()
-                val firstId = posts.first().id.getOrNull()
-                assertNotNull(firstId, "Expected first post to have an id for provider=$provider explicit=$explicit")
-                val comments = client.getComments(firstId)
-                assertTrue(comments.isNotEmpty(), "Expected comments for provider=$provider explicit=$explicit")
-            }
-        }
+    @Test
+    fun createPost_returnsCreatedPost() = runBlocking {
+        for ((provider, explicit) in providerModes()) {
+            val client = buildClient(provider, explicit)
 
-        @Test
-        fun createPost_returnsCreatedPost() = runBlocking {
-            for ((provider, explicit) in providerModes()) {
-                val client = buildClient(provider, explicit)
+            val newPost = Post(
+                userId = OptionalField.Present(1),
+                id = OptionalField.Absent,
+                title = OptionalField.Present("integration test title"),
+                body = OptionalField.Present("integration test body"),
+            )
 
-                val newPost = Post(
-                    userId = OptionalField.Present(1),
-                    id = OptionalField.Absent,
-                    title = OptionalField.Present("integration test title"),
-                    body = OptionalField.Present("integration test body"),
-                )
-
-                val created = client.createPost(newPost)
-                assertNotNull(created, "Expected created post for provider=$provider explicit=$explicit")
-            }
+            val created = client.createPost(newPost)
+            println(newPost)
+            assertNotNull(created, "Expected created post for provider=$provider explicit=$explicit")
         }
     }
 }

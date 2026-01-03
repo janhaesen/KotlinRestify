@@ -22,8 +22,6 @@ import java.util.concurrent.atomic.AtomicBoolean
  * - Delegates execution to the provided HttpClientAdapter
  *
  * Adds:
- * - `effectiveRetryPolicyFor` to obtain only the retry policy (narrower surface than exposing
- *  baseConfig)
  * - `closeAdapter` as an idempotent, thread-safe close for the underlying low-level adapter
  */
 internal class AdapterHttpClient(

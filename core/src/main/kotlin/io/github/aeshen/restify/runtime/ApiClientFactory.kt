@@ -9,7 +9,7 @@ import io.github.aeshen.restify.runtime.client.body.ResponseMapperFactory
 import io.github.aeshen.restify.runtime.client.path.UrlBuilder
 import io.github.aeshen.restify.runtime.client.path.impl.DefaultUrlBuilder
 import io.github.aeshen.restify.runtime.retry.RetryPolicy
-import io.github.aeshen.restify.runtime.retry.TimeBoundRetryPolicy
+import io.github.aeshen.restify.runtime.retry.impl.TimeBoundRetryPolicy
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import java.io.Closeable
