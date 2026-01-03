@@ -4,7 +4,7 @@ import io.github.aeshen.example.api.json.JsonProviders.createJacksonJsonProvider
 import io.github.aeshen.example.api.json.JsonProviders.kotlinJsonProvider
 import io.github.aeshen.restify.generated.JsonPlaceholderApiClient
 import io.github.aeshen.restify.runtime.ApiClientFactory
-import io.github.aeshen.restify.runtime.client.body.BodySerializerFactory.createKotlinxBodySerializer
+import io.github.aeshen.restify.runtime.serialization.BodySerializerFactory.createKotlinxBodySerializer
 import io.github.aeshen.restify.runtime.serialization.OptionalField
 import io.github.aeshen.restify.runtime.serialization.jackson.JacksonResponseMapperFactory
 import io.github.aeshen.restify.runtime.serialization.jackson.OptionalFieldJacksonDeserializer

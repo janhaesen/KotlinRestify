@@ -1,5 +1,6 @@
-package io.github.aeshen.restify.runtime.client.body
+package io.github.aeshen.restify.runtime.serialization
 
+import io.github.aeshen.restify.runtime.client.body.BodySerializer
 import io.github.aeshen.restify.runtime.serialization.jackson.JacksonBodySerializer
 import io.github.aeshen.restify.runtime.serialization.kotlinx.KotlinxBodySerializer
 import kotlinx.serialization.json.Json
@@ -13,7 +14,7 @@ object BodySerializerFactory {
      *   ApiConfig.builder(baseUrl)
      *     .bodySerializer(createKotlinxBodySerializer(Json { ignoreUnknownKeys = true }))
      */
-    fun createKotlinxBodySerializer(json: Json = Json): BodySerializer =
+    fun createKotlinxBodySerializer(json: Json = Json.Default): BodySerializer =
         KotlinxBodySerializer(json)
 
     /**

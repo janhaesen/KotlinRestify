@@ -53,7 +53,7 @@ internal class KtorHttpClientAdapter(
                         HttpMethod.DELETE -> io.ktor.http.HttpMethod.Delete
                         HttpMethod.PATCH -> io.ktor.http.HttpMethod.Patch
                         HttpMethod.HEAD -> io.ktor.http.HttpMethod.Head
-                        HttpMethod.OPTIONS -> TODO()
+                        HttpMethod.OPTIONS -> throw UnsupportedOperationException()
                     }
 
                 // Request.headers are expected to be final (AdapterHttpClient merges default headers)

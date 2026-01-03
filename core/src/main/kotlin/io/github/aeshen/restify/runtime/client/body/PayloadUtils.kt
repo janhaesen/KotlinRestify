@@ -35,7 +35,10 @@ internal object PayloadUtils {
      * mappers expect a present body).
      */
     fun bytesToString(bytes: ByteArray?, charset: Charset = Charsets.UTF_8): String {
-        if (bytes == null) throw IllegalStateException("Response body is not present")
+        if (bytes == null) {
+            throw IllegalStateException("Response body is not present")
+        }
+
         return String(bytes, charset)
     }
 }
