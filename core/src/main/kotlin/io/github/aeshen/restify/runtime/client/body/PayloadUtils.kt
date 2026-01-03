@@ -13,16 +13,28 @@ internal object PayloadUtils {
     fun toByteArray(raw: Any?): ByteArray? {
         if (raw == null) return null
         return when (raw) {
-            is ByteArray -> raw
-            is String -> raw.toByteArray(Charsets.UTF_8)
-            is InputStream -> raw.readBytes()
+            is ByteArray -> {
+                raw
+            }
+
+            is String -> {
+                raw.toByteArray(Charsets.UTF_8)
+            }
+
+            is InputStream -> {
+                raw.readBytes()
+            }
+
             is ByteBuffer -> {
                 val dst = ByteArray(raw.remaining())
                 val copy = raw.duplicate()
                 copy.get(dst)
                 dst
             }
-            else -> raw.toString().toByteArray(Charsets.UTF_8)
+
+            else -> {
+                raw.toString().toByteArray(Charsets.UTF_8)
+            }
         }
     }
 
@@ -34,7 +46,10 @@ internal object PayloadUtils {
      * Throws IllegalStateException when bytes are null (preserves previous behavior that
      * mappers expect a present body).
      */
-    fun bytesToString(bytes: ByteArray?, charset: Charset = Charsets.UTF_8): String {
+    fun bytesToString(
+        bytes: ByteArray?,
+        charset: Charset = Charsets.UTF_8,
+    ): String {
         if (bytes == null) {
             throw IllegalStateException("Response body is not present")
         }

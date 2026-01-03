@@ -1,6 +1,8 @@
-package io.github.aeshen.restify.runtime.client.body
+package io.github.aeshen.restify.runtime.client.body.serializer.impl
 
 import io.github.aeshen.restify.annotation.http.MediaType
+import io.github.aeshen.restify.runtime.client.body.serializer.BodySerializer
+import io.github.aeshen.restify.runtime.client.body.serializer.SerializedBody
 
 /**
  * Default serializer used by adapters when no custom serializer is provided.

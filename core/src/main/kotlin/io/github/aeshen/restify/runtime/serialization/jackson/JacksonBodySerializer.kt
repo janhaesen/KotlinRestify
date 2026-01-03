@@ -1,15 +1,15 @@
 package io.github.aeshen.restify.runtime.serialization.jackson
 
 import io.github.aeshen.restify.annotation.http.MediaType
-import io.github.aeshen.restify.runtime.client.body.BaseBodySerializer
-import io.github.aeshen.restify.runtime.client.body.BodySerializer
-import io.github.aeshen.restify.runtime.client.body.SerializedBody
+import io.github.aeshen.restify.runtime.client.body.serializer.BodySerializer
+import io.github.aeshen.restify.runtime.client.body.serializer.SerializedBody
+import io.github.aeshen.restify.runtime.client.body.serializer.impl.BaseBodySerializer
 import tools.jackson.databind.ObjectMapper
 
 internal class JacksonBodySerializer(
     private val objectMapper: ObjectMapper = ObjectMapper(),
-) : BaseBodySerializer(), BodySerializer {
-
+) : BaseBodySerializer(),
+    BodySerializer {
     override fun serialize(
         body: Any?,
         requestedContentType: MediaType?,
@@ -27,7 +27,9 @@ internal class JacksonBodySerializer(
             return SerializedBody(jsonStr, requested ?: "application/json")
         } catch (e: Exception) {
             throw IllegalArgumentException(
-                "JacksonBodySerializer: failed to serialize type ${body?.let { it::class } ?: "null"}: ${e.message}",
+                "JacksonBodySerializer: failed to serialize type ${body?.let {
+                    it::class
+                } ?: "null"}: ${e.message}",
                 e,
             )
         }
@@ -48,11 +50,12 @@ internal class JacksonBodySerializer(
         }
 
         // Convert arbitrary object to JSON string when possible, otherwise fallback to toString()
-        val bytesStr = try {
-            objectMapper.writeValueAsString(rawPayload)
-        } catch (_: Exception) {
-            rawPayload.toString()
-        }
+        val bytesStr =
+            try {
+                objectMapper.writeValueAsString(rawPayload)
+            } catch (_: Exception) {
+                rawPayload.toString()
+            }
 
         return bytesStr.toByteArray(Charsets.UTF_8)
     }

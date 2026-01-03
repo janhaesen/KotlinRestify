@@ -21,15 +21,6 @@ import tools.jackson.databind.node.ObjectNode
  * for the contained value type. If contextual information is unavailable it falls back to returning
  * the raw JsonNode inside Present to avoid throws in partial contexts.
  */
-/**
- * Jackson deserializer for OptionalField<T>.
- *
- * Accepts both the envelope produced by OptionalFieldJacksonSerializer:
- *  - { "present": false }  -> OptionalField.Absent
- *  - { "present": true, "value": <...> } -> OptionalField.Present(<deserialized value|null>)
- *
- * And raw values (e.g. plain number/string/object) which are interpreted as Present(<value>).
- */
 class OptionalFieldJacksonDeserializer(
     private val valueType: JavaType? = null,
     private val valueDeserializer: ValueDeserializer<Any?>? = null,
@@ -57,7 +48,10 @@ class OptionalFieldJacksonDeserializer(
         return deserializeNode(node, ctxt)
     }
 
-    private fun deserializeNode(valueNode: JsonNode, ctxt: DeserializationContext): OptionalField<*> {
+    private fun deserializeNode(
+        valueNode: JsonNode,
+        ctxt: DeserializationContext,
+    ): OptionalField<*> {
         if (valueDeserializer == null || valueType == null) {
             return OptionalField.Present(valueNode)
         }

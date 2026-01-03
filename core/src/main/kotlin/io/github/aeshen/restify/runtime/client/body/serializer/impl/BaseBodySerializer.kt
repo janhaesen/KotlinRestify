@@ -1,6 +1,7 @@
-package io.github.aeshen.restify.runtime.client.body
+package io.github.aeshen.restify.runtime.client.body.serializer.impl
 
 import io.github.aeshen.restify.annotation.http.MediaType
+import io.github.aeshen.restify.runtime.client.body.serializer.SerializedBody
 
 /**
  * Base helper for concrete BodySerializer implementations.
@@ -19,15 +20,34 @@ internal abstract class BaseBodySerializer {
 
         val requested = requestedContentType?.toString()
         return when (body) {
-            is ByteArray -> SerializedBody(body, requested ?: "application/octet-stream")
-            is String -> SerializedBody(body, requested ?: "application/json")
-            is Number, is Boolean, is Char -> SerializedBody(body.toString(), requested ?: "text/plain")
-            else -> null
+            is ByteArray -> {
+                SerializedBody(body, requested ?: "application/octet-stream")
+            }
+
+            is String -> {
+                SerializedBody(body, requested ?: "application/json")
+            }
+
+            is Number,
+            is Boolean,
+            is Char,
+            -> {
+                SerializedBody(
+                    body.toString(),
+                    requested ?: "text/plain",
+                )
+            }
+
+            else -> {
+                null
+            }
         }
     }
 
     protected fun handleSimpleDeserialize(rawPayload: Any?): ByteArray? {
-        if (rawPayload == null) return null
+        if (rawPayload == null) {
+            return null
+        }
 
         return when (rawPayload) {
             is ByteArray -> rawPayload

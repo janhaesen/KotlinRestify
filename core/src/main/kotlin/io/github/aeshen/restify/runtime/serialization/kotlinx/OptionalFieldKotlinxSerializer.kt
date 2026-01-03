@@ -88,17 +88,26 @@ object OptionalFieldKotlinxSerializer : KSerializer<OptionalField<Any?>> {
             if (elem is JsonObject && (elem.containsKey("present") || elem.containsKey("value"))) {
                 val present =
                     when (val presentElem = elem["present"]) {
-                        is JsonPrimitive -> presentElem.booleanOrNull
-                            ?: true
-                        null -> true
-                        else -> true
+                        is JsonPrimitive -> {
+                            presentElem.booleanOrNull
+                                ?: true
+                        }
+
+                        null -> {
+                            true
+                        }
+
+                        else -> {
+                            true
+                        }
                     }
                 if (!present) {
                     return OptionalField.absent()
                 }
 
-                val valueElem = elem["value"]
-                    ?: JsonNull
+                val valueElem =
+                    elem["value"]
+                        ?: JsonNull
                 val parsedValue =
                     if (valueElem === JsonNull) {
                         null
@@ -109,11 +118,12 @@ object OptionalFieldKotlinxSerializer : KSerializer<OptionalField<Any?>> {
             }
 
             // Bare value -> treat as Present(value)
-            val value = if (elem === JsonNull) {
-                null
-            } else {
-                jsonElementToKotlin(elem)
-            }
+            val value =
+                if (elem === JsonNull) {
+                    null
+                } else {
+                    jsonElementToKotlin(elem)
+                }
             return OptionalField.present(value)
         }
 

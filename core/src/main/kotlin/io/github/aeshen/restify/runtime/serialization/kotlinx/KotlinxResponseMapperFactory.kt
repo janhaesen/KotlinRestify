@@ -5,13 +5,14 @@ import io.github.aeshen.restify.runtime.client.body.PayloadUtils
 import io.github.aeshen.restify.runtime.client.body.ResponseMapper
 import io.github.aeshen.restify.runtime.client.body.ResponseMapperFactory
 import io.github.aeshen.restify.runtime.client.body.TypeKey
-import kotlin.reflect.KClass
-import kotlin.reflect.KType
-import kotlin.reflect.full.createType
+import io.github.aeshen.restify.runtime.client.body.serializer.BodySerializer
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.serializer
+import kotlin.reflect.KClass
+import kotlin.reflect.KType
+import kotlin.reflect.full.createType
 
 /**
  * ResponseMapperFactory backed by a configured kotlinx.serialization Json instance.
@@ -19,8 +20,8 @@ import kotlinx.serialization.serializer
  */
 class KotlinxResponseMapperFactory(
     private val json: Json = Json,
+    override val bodySerializer: BodySerializer = KotlinxBodySerializer(json),
 ) : ResponseMapperFactory {
-
     companion object {
         private val DEFAULT_CHARSET = Charsets.UTF_8
     }
@@ -29,15 +30,17 @@ class KotlinxResponseMapperFactory(
         return when (key) {
             is TypeKey.ClassKey -> {
                 val kType = makeKType(key.clazz, key.nullable)
-                val ks = serializerFor(kType)
-                    ?: return null
+                val ks =
+                    serializerFor(kType)
+                        ?: return null
                 responseMapperForSerializer(ks)
             }
 
             is TypeKey.ListKey -> {
                 val elemType = makeKType(key.elementClazz, key.elementNullable)
-                val elemSerializer = serializerFor(elemType)
-                    ?: return null
+                val elemSerializer =
+                    serializerFor(elemType)
+                        ?: return null
 
                 @Suppress("UNCHECKED_CAST")
                 val listSerializer = ListSerializer(elemSerializer as KSerializer<Any?>)
@@ -46,7 +49,10 @@ class KotlinxResponseMapperFactory(
         }
     }
 
-    private fun makeKType(kClass: KClass<out Any>, nullable: Boolean): KType =
+    private fun makeKType(
+        kClass: KClass<out Any>,
+        nullable: Boolean,
+    ): KType =
         if (nullable) {
             kClass.createType(nullable = true)
         } else {
@@ -62,11 +68,17 @@ class KotlinxResponseMapperFactory(
         }
 
     private fun <T> responseMapperForSerializer(serializer: KSerializer<*>): ResponseMapper<T> =
-        ResponseMapper { response ->
-            val str = responseBodyAsString(response)
-            @Suppress("UNCHECKED_CAST")
-            val s = serializer as KSerializer<T>
-            json.decodeFromString(s, str)
+        object : ResponseMapper<T> {
+            override val bodySerializer: BodySerializer =
+                this@KotlinxResponseMapperFactory.bodySerializer
+
+            override suspend fun map(response: ResponseData): T {
+                val str = responseBodyAsString(response)
+
+                @Suppress("UNCHECKED_CAST")
+                val s = serializer as KSerializer<T>
+                return json.decodeFromString(s, str)
+            }
         }
 
     private fun responseBodyAsString(response: ResponseData): String =

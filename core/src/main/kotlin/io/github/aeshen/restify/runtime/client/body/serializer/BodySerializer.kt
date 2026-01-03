@@ -1,4 +1,4 @@
-package io.github.aeshen.restify.runtime.client.body
+package io.github.aeshen.restify.runtime.client.body.serializer
 
 import io.github.aeshen.restify.annotation.http.MediaType
 

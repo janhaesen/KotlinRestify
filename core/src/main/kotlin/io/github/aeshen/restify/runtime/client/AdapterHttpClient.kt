@@ -4,8 +4,9 @@ import io.github.aeshen.restify.runtime.ApiConfig
 import io.github.aeshen.restify.runtime.RequestData
 import io.github.aeshen.restify.runtime.ResponseData
 import io.github.aeshen.restify.runtime.client.adapter.HttpClientAdapter
-import io.github.aeshen.restify.runtime.client.body.BodySerializer
-import io.github.aeshen.restify.runtime.client.body.DefaultBodySerializer
+import io.github.aeshen.restify.runtime.client.body.ResponseMapper
+import io.github.aeshen.restify.runtime.client.body.serializer.BodySerializer
+import io.github.aeshen.restify.runtime.client.body.serializer.impl.DefaultBodySerializer
 import io.github.aeshen.restify.runtime.client.path.UrlBuilder
 import io.github.aeshen.restify.runtime.client.path.impl.DefaultUrlBuilder
 import io.github.aeshen.restify.runtime.mergeWith
@@ -27,15 +28,25 @@ import java.util.concurrent.atomic.AtomicBoolean
  */
 internal class AdapterHttpClient(
     private val adapter: HttpClientAdapter,
-    internal val baseConfig: ApiConfig,
+    private val baseConfig: ApiConfig,
     private val urlBuilder: UrlBuilder = DefaultUrlBuilder,
 ) {
     private val closed = AtomicBoolean(false)
 
-    suspend fun execute(request: RequestData): ResponseData {
+    /**
+     * Accept an optional mapper so the transport can prefer the mapper's BodySerializer when
+     * serializing the outgoing request body.
+     */
+    suspend fun execute(
+        request: RequestData,
+        mapper: ResponseMapper<*>? = null,
+    ): ResponseData {
         // Merge configuration first (so UrlBuilder can receive effective baseUrl)
         val cfg = baseConfig.mergeWith(request.perRequestConfig)
-        val serializer: BodySerializer = cfg.bodySerializer ?: DefaultBodySerializer
+        val serializer: BodySerializer =
+            cfg.bodySerializer
+                ?: mapper?.bodySerializer
+                ?: DefaultBodySerializer
 
         // Transport resolves the final URL from template + path params + nullable query params
         val fullUrl =
@@ -71,10 +82,12 @@ internal class AdapterHttpClient(
         return adapter.execute(adapterRequest, cfg)
     }
 
-    fun effectiveRetryPolicyFor(request: RequestData?): RetryPolicy? {
-        return baseConfig.mergeWith(request?.perRequestConfig)
+    fun effectiveRetryPolicyFor(request: RequestData?): RetryPolicy? =
+        baseConfig
+            .mergeWith(request?.perRequestConfig)
             .retryPolicy
-    }
+
+    internal fun toApiConfig(): ApiConfig = baseConfig
 
     fun closeAdapter() {
         if (closed.compareAndSet(false, true)) {

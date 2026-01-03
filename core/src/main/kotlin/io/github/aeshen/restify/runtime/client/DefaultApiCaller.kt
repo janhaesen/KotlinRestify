@@ -25,13 +25,13 @@ internal class DefaultApiCaller(
         val retryPolicy: RetryPolicy =
             transport.effectiveRetryPolicyFor(request)
                 ?: throw IllegalStateException(
-                    "RetryPolicy not resolved. Ensure ApiClientFactory provides a resolved retryPolicy on ApiConfig"
+                    "RetryPolicy not resolved. Ensure ApiClientFactory provides a resolved retryPolicy on ApiConfig",
                 )
 
         val response =
             retryPolicy.retry {
                 // AdapterHttpClient exposes execute(request) and uses its configured ApiConfig internally.
-                transport.execute(request)
+                transport.execute(request, mapper)
             }
 
         return mapper.map(response)

@@ -1,6 +1,6 @@
 package io.github.aeshen.example.api.json
 
-import io.github.aeshen.example.api.json.JsonProviders.createJacksonJsonProvider
+import io.github.aeshen.example.api.json.JsonProviders.createObjectMapper
 import io.github.aeshen.example.api.json.JsonProviders.kotlinJsonProvider
 import io.github.aeshen.restify.generated.JsonPlaceholderApiClient
 import io.github.aeshen.restify.runtime.ApiClientFactory
@@ -36,7 +36,7 @@ object JsonProviders {
         }
     }
 
-    fun createJacksonJsonProvider(): ObjectMapper = JsonMapper.builder()
+    fun createObjectMapper(): ObjectMapper = JsonMapper.builder()
         .addModule(
             KotlinModule.Builder()
                 .enable(KotlinFeature.StrictNullChecks)
@@ -76,7 +76,7 @@ class JsonPlaceholderApiClientIntegrationTest {
             useExplicitFactory: Boolean
         ): JsonPlaceholderApiClient {
             val mapperFactory = when (providerName) {
-                "jackson" -> JacksonResponseMapperFactory(createJacksonJsonProvider())
+                "jackson" -> JacksonResponseMapperFactory(createObjectMapper())
                 "kotlinx" -> KotlinxResponseMapperFactory(kotlinJsonProvider)
                 else -> throw IllegalArgumentException("unknown provider: $providerName")
             }

@@ -13,7 +13,6 @@ import io.github.aeshen.restify.runtime.retry.TimeBoundRetryPolicy
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import java.io.Closeable
-import kotlin.invoke
 import kotlin.reflect.KClass
 import kotlin.reflect.KFunction
 import kotlin.reflect.KParameter
@@ -26,7 +25,8 @@ object ApiClientFactory {
         private var defaultRetryTimeoutMillis: Long = DEFAULT_TIMEOUT_MILLIS
 
         // Supplier that will produce the immutable ApiConfig when building
-        private var apiConfigSupplier: (() -> ApiConfig)? = null
+        // unified provider for ApiConfig (single place to set configuration)
+        private var configProvider: (() -> ApiConfig)? = null
 
         private var explicitRetryPolicy: RetryPolicy? = null
         private var perClientCallerMode: Boolean = false
@@ -40,19 +40,27 @@ object ApiClientFactory {
         fun defaultRetryTimeoutMillis(ms: Long) = apply { this.defaultRetryTimeoutMillis = ms }
 
         /**
+         * Provide a supplier that will be invoked when building the client/caller to produce an ApiConfig.
+         * This is the single place to set configuration programmatically.
+         */
+        fun config(supplier: () -> ApiConfig) = apply { this.configProvider = supplier }
+
+        /**
          * Provide an already-built immutable ApiConfig.
          */
-        fun config(apiConfig: ApiConfig) = apply { this.apiConfigSupplier = { apiConfig } }
+        fun config(apiConfig: ApiConfig) = apply { this.configProvider = { apiConfig } }
 
         /**
          * Build an ApiConfig from a baseUrl and a Builder block.
          * Requires a non-empty baseUrl to encourage explicit configuration.
          */
-        fun config(baseUrl: String, block: ApiConfig.Builder.() -> Unit) =
-            apply {
-                require(baseUrl.isNotBlank()) { "baseUrl must be provided and non-blank" }
-                this.apiConfigSupplier = { ApiConfig.build(baseUrl, block) }
-            }
+        fun config(
+            baseUrl: String,
+            block: ApiConfig.Builder.() -> Unit,
+        ) = apply {
+            require(baseUrl.isNotBlank()) { "baseUrl must be provided and non-blank" }
+            this.configProvider = { ApiConfig.build(baseUrl, block) }
+        }
 
         fun retryPolicy(policy: RetryPolicy?) =
             apply {
@@ -88,14 +96,16 @@ object ApiClientFactory {
          */
         fun buildManagedCaller(): ManagedApiCaller {
             // Ensure caller provided an ApiConfig explicitly
-            val baseCfg = apiConfigSupplier?.invoke()
-                ?: throw IllegalStateException(
-                    "ApiConfig must be provided via Builder.config(ApiConfig) or Builder.config(baseUrl, block)"
-                )
+            val baseCfg =
+                configProvider?.invoke()
+                    ?: throw IllegalStateException(
+                        "ApiConfig must be provided via Builder.config(ApiConfig), Builder.config(baseUrl, block) or Builder.configSupplier(...)",
+                    )
 
-            val resolvedRetry = baseCfg.retryPolicy
-                ?: explicitRetryPolicy
-                ?: TimeBoundRetryPolicy(defaultRetryTimeoutMillis)
+            val resolvedRetry =
+                baseCfg.retryPolicy
+                    ?: explicitRetryPolicy
+                    ?: TimeBoundRetryPolicy(defaultRetryTimeoutMillis)
             val cfg = baseCfg.copy(retryPolicy = resolvedRetry)
 
             val effectiveAdapter = adapter ?: KtorHttpClientAdapter()
@@ -105,7 +115,7 @@ object ApiClientFactory {
             return ManagedApiCaller(
                 delegate = caller,
                 closeAdapter = { adapterHttpClient.closeAdapter() },
-                apiConfigSupplier = { adapterHttpClient.baseConfig },
+                apiConfigSupplier = { adapterHttpClient.toApiConfig() },
             )
         }
 
@@ -136,14 +146,15 @@ object ApiClientFactory {
             val ctor = getConstructor(clientClass)
 
             // map parameters
-            val args = mapParameters(
-                ctor = ctor,
-                callerForCtor = callerForCtor,
-                cfgForCtor = cfgForCtor,
-                mapperFactory = mapperFactory,
-                dispatcher = dispatcher,
-                clientClass = clientClass,
-            )
+            val args =
+                mapParameters(
+                    ctor = ctor,
+                    callerForCtor = callerForCtor,
+                    cfgForCtor = cfgForCtor,
+                    mapperFactory = mapperFactory,
+                    dispatcher = dispatcher,
+                    clientClass = clientClass,
+                )
 
             return ctor.callBy(args)
         }
@@ -243,7 +254,8 @@ object ApiClientFactory {
         private val delegate: ApiCaller,
         private val closeAdapter: () -> Unit,
         private val apiConfigSupplier: () -> ApiConfig,
-    ) : ApiCaller, Closeable {
+    ) : ApiCaller,
+        Closeable {
         override suspend fun <T> call(
             request: RequestData,
             mapper: io.github.aeshen.restify.runtime.client.body.ResponseMapper<T>,
@@ -260,7 +272,7 @@ object ApiClientFactory {
     }
 }
 
-/* Top-level convenience helpers now require an ApiConfig explicitly. */
+// Top-level convenience helpers now require an ApiConfig explicitly.
 fun <T : Any> ApiClientFactory.createClient(
     clientClass: KClass<T>,
     adapter: HttpClientAdapter? = null,

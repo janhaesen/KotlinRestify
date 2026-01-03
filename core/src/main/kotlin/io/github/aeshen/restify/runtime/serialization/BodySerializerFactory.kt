@@ -1,6 +1,6 @@
 package io.github.aeshen.restify.runtime.serialization
 
-import io.github.aeshen.restify.runtime.client.body.BodySerializer
+import io.github.aeshen.restify.runtime.client.body.serializer.BodySerializer
 import io.github.aeshen.restify.runtime.serialization.jackson.JacksonBodySerializer
 import io.github.aeshen.restify.runtime.serialization.kotlinx.KotlinxBodySerializer
 import kotlinx.serialization.json.Json

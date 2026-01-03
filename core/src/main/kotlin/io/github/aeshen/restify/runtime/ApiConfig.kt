@@ -1,6 +1,6 @@
 package io.github.aeshen.restify.runtime
 
-import io.github.aeshen.restify.runtime.client.body.BodySerializer
+import io.github.aeshen.restify.runtime.client.body.serializer.BodySerializer
 import io.github.aeshen.restify.runtime.retry.RetryPolicy
 
 /**
@@ -23,10 +23,15 @@ data class ApiConfig(
         fun builder(baseUrl: String): Builder = Builder(baseUrl)
 
         @JvmStatic
-        inline fun build(baseUrl: String, block: Builder.() -> Unit): ApiConfig = builder(baseUrl).apply(block).build()
+        inline fun build(
+            baseUrl: String,
+            block: Builder.() -> Unit,
+        ): ApiConfig = builder(baseUrl).apply(block).build()
     }
 
-    class Builder internal constructor(private val baseUrl: String) {
+    class Builder internal constructor(
+        private val baseUrl: String,
+    ) {
         var defaultHeaders: Map<String, String> = emptyMap()
         var timeoutMillis: Long? = null
         var bodySerializer: BodySerializer? = null
@@ -34,9 +39,13 @@ data class ApiConfig(
         var followRedirects: Boolean = true
 
         fun defaultHeaders(headers: Map<String, String>) = apply { this.defaultHeaders = headers }
+
         fun timeoutMillis(ms: Long?) = apply { this.timeoutMillis = ms }
+
         fun bodySerializer(serializer: BodySerializer?) = apply { this.bodySerializer = serializer }
+
         fun retryPolicy(policy: RetryPolicy?) = apply { this.retryPolicy = policy }
+
         fun followRedirects(follow: Boolean) = apply { this.followRedirects = follow }
 
         fun build(): ApiConfig =
