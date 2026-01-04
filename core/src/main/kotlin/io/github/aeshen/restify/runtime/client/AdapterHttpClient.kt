@@ -37,14 +37,10 @@ internal class AdapterHttpClient(
      */
     suspend fun execute(
         request: RequestData,
-        mapper: ResponseMapper<*>? = null,
+        mapper: ResponseMapper<*>,
     ): ResponseData {
         // Merge configuration first (so UrlBuilder can receive effective baseUrl)
         val cfg = baseConfig.mergeWith(request.perRequestConfig)
-        val serializer: BodySerializer =
-            cfg.bodySerializer
-                ?: mapper?.bodySerializer
-                ?: DefaultBodySerializer
 
         // Transport resolves the final URL from template + path params + nullable query params
         val fullUrl =
@@ -55,7 +51,9 @@ internal class AdapterHttpClient(
                 request.queryParameters,
             )
 
-        val serialized = serializer.serialize(request.body, request.contentType)
+        val serialized = mapper
+            .bodySerializer
+            .serialize(request.body, request.contentType)
 
         // Merge config default headers first, then request headers override
         val headers = cfg.defaultHeaders.toMutableMap().apply { putAll(request.headers) }

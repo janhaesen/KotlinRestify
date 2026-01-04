@@ -14,7 +14,6 @@ data class ApiConfig(
     val baseUrl: String,
     val defaultHeaders: Map<String, String> = emptyMap(),
     val timeoutMillis: Long? = null,
-    val bodySerializer: BodySerializer? = null,
     val retryPolicy: RetryPolicy? = null,
     val followRedirects: Boolean = true,
 ) {
@@ -34,15 +33,12 @@ data class ApiConfig(
     ) {
         var defaultHeaders: Map<String, String> = emptyMap()
         var timeoutMillis: Long? = null
-        var bodySerializer: BodySerializer? = null
         var retryPolicy: RetryPolicy? = null
         var followRedirects: Boolean = true
 
         fun defaultHeaders(headers: Map<String, String>) = apply { this.defaultHeaders = headers }
 
         fun timeoutMillis(ms: Long?) = apply { this.timeoutMillis = ms }
-
-        fun bodySerializer(serializer: BodySerializer?) = apply { this.bodySerializer = serializer }
 
         fun retryPolicy(policy: RetryPolicy?) = apply { this.retryPolicy = policy }
 
@@ -53,7 +49,6 @@ data class ApiConfig(
                 baseUrl = baseUrl,
                 defaultHeaders = defaultHeaders,
                 timeoutMillis = timeoutMillis,
-                bodySerializer = bodySerializer,
                 retryPolicy = retryPolicy,
                 followRedirects = followRedirects,
             )
@@ -76,8 +71,7 @@ internal fun ApiConfig.mergeWith(override: ApiConfig?): ApiConfig {
         baseUrl = override.baseUrl.ifBlank { this.baseUrl },
         defaultHeaders = this.defaultHeaders + override.defaultHeaders,
         timeoutMillis = override.timeoutMillis ?: this.timeoutMillis,
-        bodySerializer = override.bodySerializer ?: this.bodySerializer,
-        retryPolicy = override.retryPolicy ?: this.retryPolicy,
+        retryPolicy = override.retryPolicy ?: retryPolicy,
         followRedirects = override.followRedirects,
     )
 }

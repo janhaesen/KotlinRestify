@@ -90,14 +90,15 @@ interface GithubApi {
 ```kotlin
 import dev.myorg.kotlinrestify.client.*
 
-val client = RestClientBuilder()
-    .baseUrl("https://api.github.com")
-    .defaultHeader("Accept", "application/vnd.github.v3+json")
-    .timeout(30_000)               // optional
-    .enableRetry()                  // optional, pulls in retry module
-    .build()
+val factory =
+    ApiClientFactory
+        .builder()
+        .config("https://api.github.com")
+        .responseMapperFactory(KotlinxResponseMapperFactory(kotlinJsonProvider))
+        .defaultRetryTimeoutMillis(DEFAULT_TIMEOUT_MILLIS)
+        .retryPolicy(TimeBoundRetryPolicy(DEFAULT_TIMEOUT_MILLIS))
 
-val github: GithubApi = client.create(GithubApi::class)
+val github: GithubApi = factory.createClient<GithubApi>
 ```
 
 Now you can call `github.getUser("octocat")` inside any coroutine scope.
@@ -122,7 +123,6 @@ You can feed this file directly to Swagger UI, Redoc, or any API‑gateway that 
 | `kotlinrestify-annotations` | Annotation definitions only (no runtime code)      | **None**                  |
 | `kotlinrestify-processor`   | KSP processor that builds `RequestSpec` objects    | **None**                  |
 | `kotlinrestify-core`        | Runtime implementation (uses Ktor client)         | **Yes**                   |
-| `kotlinrestify-retry`       | Retry, exponential back‑off, circuit‑breaker utilities | Depends on core           |
 | `kotlinrestify-openapi`     | Generates OpenAPI 3.0 spec from annotations        | **None** (compile‑time only) |
 
 ---
@@ -130,14 +130,12 @@ You can feed this file directly to Swagger UI, Redoc, or any API‑gateway that 
 ## Configuration Options
 
 ```kotlin
-RestClientBuilder()
-    .baseUrl("https://example.com")
-    .defaultHeader("User-Agent", "KotlinRestify/0.1")
-    .connectTimeout(10_000)
-    .readTimeout(20_000)
-    .enableLogging(level = LogLevel.BODY)   // optional
-    .enableMetrics(metricsCollector)        // optional
-    .build()
+ApiClientFactory
+    .builder()
+    .config("https://api.github.com")
+    .responseMapperFactory(KotlinxResponseMapperFactory(kotlinJsonProvider))
+    .defaultRetryTimeoutMillis(DEFAULT_TIMEOUT_MILLIS)
+    .retryPolicy(TimeBoundRetryPolicy(DEFAULT_TIMEOUT_MILLIS))
 ```
 
 All options are **fluent** and can be omitted for sensible defaults.
@@ -185,7 +183,7 @@ See `CONTRIBUTING.md` for coding style, commit guidelines, and the review proces
 
 `KotlinRestify` is released under the **Apache License 2.0** – see the `LICENSE` file for details.
 
----  
+---
 
 **Happy coding!** 🎉
 

@@ -6,6 +6,7 @@ import io.github.aeshen.restify.runtime.ApiConfig
 import io.github.aeshen.restify.runtime.RequestData
 import io.github.aeshen.restify.runtime.ResponseData
 import io.github.aeshen.restify.runtime.client.adapter.HttpClientAdapter
+import io.github.aeshen.restify.runtime.client.adapter.mapContentType
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.cio.CIO
 import io.ktor.client.plugins.HttpTimeout
@@ -88,7 +89,7 @@ internal class KtorHttpClientAdapter(
             statusCode = status,
             headers = respHeaders,
             body = bytes,
-            contentType = respHeaders[HttpHeaders.ContentType]?.let { MediaType.valueOf(it) },
+            contentType = respHeaders[HttpHeaders.ContentType]?.let { mapContentType(it) },
         )
     }
 

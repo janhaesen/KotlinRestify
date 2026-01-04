@@ -9,7 +9,7 @@ import io.github.aeshen.restify.runtime.client.body.ResponseMapperFactory
 import io.github.aeshen.restify.runtime.client.path.UrlBuilder
 import io.github.aeshen.restify.runtime.client.path.impl.DefaultUrlBuilder
 import io.github.aeshen.restify.runtime.retry.RetryPolicy
-import io.github.aeshen.restify.runtime.retry.impl.TimeBoundRetryPolicy
+import io.github.aeshen.restify.runtime.retry.impl.FixedDelayRetryPolicy
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import java.io.Closeable
@@ -57,7 +57,7 @@ object ApiClientFactory {
          */
         fun config(
             baseUrl: String,
-            block: ApiConfig.Builder.() -> Unit,
+            block: ApiConfig.Builder.() -> Unit = {},
         ) = apply {
             require(baseUrl.isNotBlank()) { "baseUrl must be provided and non-blank" }
             this.configProvider = { ApiConfig.build(baseUrl, block) }
@@ -107,7 +107,7 @@ object ApiClientFactory {
             val resolvedRetry =
                 baseCfg.retryPolicy
                     ?: explicitRetryPolicy
-                    ?: TimeBoundRetryPolicy(defaultRetryTimeoutMillis)
+                    ?: FixedDelayRetryPolicy(defaultRetryTimeoutMillis)
             val cfg = baseCfg.copy(retryPolicy = resolvedRetry)
 
             val effectiveAdapter = adapter ?: KtorHttpClientAdapter()

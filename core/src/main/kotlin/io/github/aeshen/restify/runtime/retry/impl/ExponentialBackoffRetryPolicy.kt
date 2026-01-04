@@ -1,11 +1,7 @@
 package io.github.aeshen.restify.runtime.retry.impl
 
-import io.github.aeshen.restify.runtime.retry.RetryPolicy
+import kotlin.math.pow
 import kotlin.random.Random
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.currentCoroutineContext
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.ensureActive
 
 /**
  * Pure-kotlin coroutine retry policy with exponential backoff and jitter.
@@ -17,51 +13,29 @@ import kotlinx.coroutines.ensureActive
  * - jitterFactor: relative jitter magnitude (0.0 = none, 0.1 = ±10%)
  */
 class ExponentialBackoffRetryPolicy(
-    private val maxAttempts: Int = 3,
+    timeoutMillis: Long,
+    private val maxAttemptsOverride: Int = 3,
     private val baseDelayMillis: Long = 100,
     private val multiplier: Double = 2.0,
     private val maxDelayMillis: Long = 10_000,
     private val jitterFactor: Double = 0.1,
-    private val random: Random = Random.Default,
-) : RetryPolicy {
+    private val retryOn: (Throwable) -> Boolean = { true },
+    private val random: Random = Random.Default
+) : BaseRetryPolicy(timeoutMillis, maxAttemptsOverride) {
     init {
-        require(maxAttempts >= 1)
-        require(baseDelayMillis >= 0)
-        require(multiplier >= 1.0)
-        require(jitterFactor >= 0.0)
+        require(baseDelayMillis >= 0) { "baseDelayMillis must be >= 0" }
+        require(multiplier >= 1.0) { "multiplier must be >= 1.0" }
+        require(maxDelayMillis >= 0) { "maxDelayMillis must be >= 0" }
+        require(jitterFactor >= 0.0) { "jitterFactor must be >= 0.0" }
     }
 
-    @Suppress("TooGenericExceptionCaught")
-    override suspend fun <T> retry(block: suspend () -> T): T {
-        var attempt = 0
-        val delayMillis = baseDelayMillis.coerceAtLeast(0L)
+    override fun shouldRetry(t: Throwable): Boolean = retryOn(t)
 
-        while (true) {
-            // respect coroutine cancellation before attempt
-            currentCoroutineContext().ensureActive()
-            try {
-                return block()
-            } catch (ce: CancellationException) {
-                // preserve cancellation
-                throw ce
-            } catch (ex: Exception) {
-                attempt++
-                if (attempt >= maxAttempts) {
-                    throw ex
-                }
-
-                // compute jittered delay: base * multiplier^(attempt-1) with ±jitterFactor
-                val raw = (delayMillis * Math.pow(multiplier, (attempt - 1).toDouble())).toLong()
-                val capped = raw.coerceAtMost(maxDelayMillis)
-                val jitter = ((random.nextDouble() * 2 - 1) * jitterFactor * capped).toLong()
-                val sleep = (capped + jitter).coerceIn(0L, maxDelayMillis)
-
-                // ensure cancellation during backoff wait
-                currentCoroutineContext().ensureActive()
-                delay(sleep)
-
-                // continue to next attempt
-            }
-        }
+    override fun computeDelayMillis(attempt: Int, last: Throwable?): Long {
+        // attempt is 1-based (first retry after attempt == 1)
+        val raw = (baseDelayMillis * multiplier.pow((attempt - 1).toDouble())).toLong()
+        val capped = raw.coerceAtMost(maxDelayMillis)
+        val jitter = ((random.nextDouble() * 2 - 1) * jitterFactor * capped).toLong()
+        return (capped + jitter).coerceIn(0L, maxDelayMillis)
     }
 }
