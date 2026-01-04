@@ -4,6 +4,11 @@
 
 > **USP** – *One source of truth*: a single annotated interface gives you ready‑to‑use coroutine‑based HTTP calls **and** a ready‑to‑publish OpenAPI spec, all while staying completely modular (you can use only the annotation processor without pulling in the HTTP client at all).
 
+> [!NOTE]
+> This library is still under development
+
+What is supported is the factory to obtain a client and perform requests (retry, suspend, annotations) and the generation of clients using the annotations. The OpenAPI specification generation is still to come. 
+
 ---
 
 ## Table of Contents
