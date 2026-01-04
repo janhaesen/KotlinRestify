@@ -3,15 +3,15 @@ package io.github.aeshen.restify.runtime.retry.impl
 import io.github.aeshen.restify.runtime.DEFAULT_DELAY_MILLIS
 import io.github.aeshen.restify.runtime.NANOS_PER_MILLISECOND
 import io.github.aeshen.restify.runtime.retry.RetryPolicy
-import kotlin.math.min
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
+import kotlin.math.min
 
 abstract class BaseRetryPolicy(
     private val timeoutMillis: Long,
-    private val maxAttempts: Int = Int.MAX_VALUE
+    private val maxAttempts: Int = Int.MAX_VALUE,
 ) : RetryPolicy {
     init {
         require(timeoutMillis > 0) { "timeoutMillis must be > 0" }
@@ -28,7 +28,10 @@ abstract class BaseRetryPolicy(
      * Compute delay before next attempt (milliseconds).
      * Subclasses override to implement backoff strategies.
      */
-    protected open fun computeDelayMillis(attempt: Int, last: Throwable?): Long = DEFAULT_DELAY_MILLIS
+    protected open fun computeDelayMillis(
+        attempt: Int,
+        last: Throwable?,
+    ): Long = DEFAULT_DELAY_MILLIS
 
     @Suppress("TooGenericExceptionCaught", "ThrowsCount")
     override suspend fun <T> retry(block: suspend () -> T): T {
@@ -60,7 +63,8 @@ abstract class BaseRetryPolicy(
                     throw t
                 }
 
-                val remainingMillis = (deadlineNanos - System.nanoTime()).coerceAtLeast(0L) / NANOS_PER_MILLISECOND
+                val remainingMillis =
+                    (deadlineNanos - System.nanoTime()).coerceAtLeast(0L) / NANOS_PER_MILLISECOND
                 if (remainingMillis <= 0L) {
                     throw t
                 }

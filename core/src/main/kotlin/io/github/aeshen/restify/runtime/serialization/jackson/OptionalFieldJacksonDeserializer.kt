@@ -29,8 +29,9 @@ class OptionalFieldJacksonDeserializer(
         p: JsonParser,
         ctxt: DeserializationContext,
     ): OptionalField<*> {
-        val node = ctxt.readTree(p)
-            ?: return OptionalField.Absent
+        val node =
+            ctxt.readTree(p)
+                ?: return OptionalField.Absent
 
         // If it's an ObjectNode and looks like the envelope, respect "present"
         if (node is ObjectNode) {
@@ -41,8 +42,9 @@ class OptionalFieldJacksonDeserializer(
                     return OptionalField.Absent
                 }
 
-                val valueNode = node.get("value")
-                    ?: NullNode.instance
+                val valueNode =
+                    node.get("value")
+                        ?: NullNode.instance
                 return deserializeNode(valueNode, ctxt)
             }
             // If it's an object but not the envelope, treat the object itself as the inner value

@@ -113,8 +113,9 @@ class AnnotationTypeResolver {
                 } catch (_: Exception) {
                     null
                 } ?: continue
-            val decl = resolver.getClassDeclarationByName(name)
-                ?: continue
+            val decl =
+                resolver.getClassDeclarationByName(name)
+                    ?: continue
             return decl.asStarProjectedType()
         }
         return null

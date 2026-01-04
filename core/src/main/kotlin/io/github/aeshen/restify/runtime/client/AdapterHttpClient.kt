@@ -51,9 +51,10 @@ internal class AdapterHttpClient(
                 request.queryParameters,
             )
 
-        val serialized = mapper
-            .bodySerializer
-            .serialize(request.body, request.contentType)
+        val serialized =
+            mapper
+                .bodySerializer
+                .serialize(request.body, request.contentType)
 
         // Merge config default headers first, then request headers override
         val headers = cfg.defaultHeaders.toMutableMap().apply { putAll(request.headers) }

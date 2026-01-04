@@ -9,9 +9,6 @@ import io.github.aeshen.restify.runtime.serialization.jackson.JacksonResponseMap
 import io.github.aeshen.restify.runtime.serialization.jackson.OptionalFieldJacksonDeserializer
 import io.github.aeshen.restify.runtime.serialization.jackson.OptionalFieldJacksonSerializer
 import io.github.aeshen.restify.runtime.serialization.kotlinx.KotlinxResponseMapperFactory
-import java.util.stream.Stream
-import kotlin.test.assertNotNull
-import kotlin.test.assertTrue
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import org.junit.jupiter.params.ParameterizedTest
@@ -23,6 +20,9 @@ import tools.jackson.databind.json.JsonMapper
 import tools.jackson.databind.module.SimpleModule
 import tools.jackson.module.kotlin.KotlinFeature
 import tools.jackson.module.kotlin.KotlinModule
+import java.util.stream.Stream
+import kotlin.test.assertNotNull
+import kotlin.test.assertTrue
 
 /**
  * Json provider that uses the single optional factory module.
@@ -66,8 +66,7 @@ class JsonPlaceholderApiClientIntegrationTest {
                 "jackson" to false,
                 "kotlinx" to true,
                 "kotlinx" to false,
-            )
-                .map { Arguments.of(it.first, it.second) }
+            ).map { Arguments.of(it.first, it.second) }
                 .stream()
     }
 
@@ -101,7 +100,10 @@ class JsonPlaceholderApiClientIntegrationTest {
 
     @ParameterizedTest
     @MethodSource("providerModes")
-    fun getPosts_returnsNonEmptyList(provider: String, explicit: Boolean) = runBlocking {
+    fun getPosts_returnsNonEmptyList(
+        provider: String,
+        explicit: Boolean,
+    ) = runBlocking {
         val client = buildClient(provider, explicit)
         val posts = client.getPosts()
         assertTrue(
@@ -112,59 +114,65 @@ class JsonPlaceholderApiClientIntegrationTest {
 
     @ParameterizedTest
     @MethodSource("providerModes")
-    fun getPostById_returnsPost(provider: String, explicit: Boolean) =
-        runBlocking {
-            val client = buildClient(provider, explicit)
-            val posts = client.getPosts()
-            val firstId = posts.first().id.getOrNull()
-            assertNotNull(
-                firstId,
-                "Expected first post to have an id for provider=$provider explicit=$explicit",
-            )
-            val post = client.getPost(firstId)
-            assertNotNull(
-                post,
-                "Expected getPost to return a post for provider=$provider explicit=$explicit",
-            )
-        }
+    fun getPostById_returnsPost(
+        provider: String,
+        explicit: Boolean,
+    ) = runBlocking {
+        val client = buildClient(provider, explicit)
+        val posts = client.getPosts()
+        val firstId = posts.first().id.getOrNull()
+        assertNotNull(
+            firstId,
+            "Expected first post to have an id for provider=$provider explicit=$explicit",
+        )
+        val post = client.getPost(firstId)
+        assertNotNull(
+            post,
+            "Expected getPost to return a post for provider=$provider explicit=$explicit",
+        )
+    }
 
     @ParameterizedTest
     @MethodSource("providerModes")
-    fun getCommentsForPost_returnsList(provider: String, explicit: Boolean) =
-        runBlocking {
-            val client = buildClient(provider, explicit)
-            val posts = client.getPosts()
-            val firstId = posts.first().id.getOrNull()
-            assertNotNull(
-                firstId,
-                "Expected first post to have an id for provider=$provider explicit=$explicit",
-            )
-            val comments = client.getComments(firstId)
-            assertTrue(
-                comments.isNotEmpty(),
-                "Expected comments for provider=$provider explicit=$explicit",
-            )
-        }
+    fun getCommentsForPost_returnsList(
+        provider: String,
+        explicit: Boolean,
+    ) = runBlocking {
+        val client = buildClient(provider, explicit)
+        val posts = client.getPosts()
+        val firstId = posts.first().id.getOrNull()
+        assertNotNull(
+            firstId,
+            "Expected first post to have an id for provider=$provider explicit=$explicit",
+        )
+        val comments = client.getComments(firstId)
+        assertTrue(
+            comments.isNotEmpty(),
+            "Expected comments for provider=$provider explicit=$explicit",
+        )
+    }
 
     @ParameterizedTest
     @MethodSource("providerModes")
-    fun createPost_returnsCreatedPost(provider: String, explicit: Boolean) =
-        runBlocking {
-            val client = buildClient(provider, explicit)
+    fun createPost_returnsCreatedPost(
+        provider: String,
+        explicit: Boolean,
+    ) = runBlocking {
+        val client = buildClient(provider, explicit)
 
-            val newPost =
-                Post(
-                    userId = OptionalField.Present(1),
-                    id = OptionalField.Absent,
-                    title = OptionalField.Present("integration test title"),
-                    body = OptionalField.Present("integration test body"),
-                )
-
-            val created = client.createPost(newPost)
-            println(newPost)
-            assertNotNull(
-                created,
-                "Expected created post for provider=$provider explicit=$explicit",
+        val newPost =
+            Post(
+                userId = OptionalField.Present(1),
+                id = OptionalField.Absent,
+                title = OptionalField.Present("integration test title"),
+                body = OptionalField.Present("integration test body"),
             )
-        }
+
+        val created = client.createPost(newPost)
+        println(newPost)
+        assertNotNull(
+            created,
+            "Expected created post for provider=$provider explicit=$explicit",
+        )
+    }
 }

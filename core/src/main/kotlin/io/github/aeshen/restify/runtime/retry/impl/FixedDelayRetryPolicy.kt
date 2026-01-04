@@ -12,8 +12,12 @@ class FixedDelayRetryPolicy(
     timeoutMillis: Long,
     private val delayMillis: Long = 100L,
     maxAttempts: Int = Int.MAX_VALUE,
-    private val retryOn: (Throwable) -> Boolean = { true }
+    private val retryOn: (Throwable) -> Boolean = { true },
 ) : BaseRetryPolicy(timeoutMillis, maxAttempts) {
     override fun shouldRetry(t: Throwable): Boolean = retryOn(t)
-    override fun computeDelayMillis(attempt: Int, last: Throwable?): Long = delayMillis
+
+    override fun computeDelayMillis(
+        attempt: Int,
+        last: Throwable?,
+    ): Long = delayMillis
 }

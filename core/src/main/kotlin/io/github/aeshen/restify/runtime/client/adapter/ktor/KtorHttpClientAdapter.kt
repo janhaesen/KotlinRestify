@@ -93,15 +93,16 @@ internal class KtorHttpClientAdapter(
         )
     }
 
-    private fun mapHttpMethod(request: RequestData): io.ktor.http.HttpMethod = when (request.method) {
-        HttpMethod.GET -> io.ktor.http.HttpMethod.Get
-        HttpMethod.POST -> io.ktor.http.HttpMethod.Post
-        HttpMethod.PUT -> io.ktor.http.HttpMethod.Put
-        HttpMethod.DELETE -> io.ktor.http.HttpMethod.Delete
-        HttpMethod.PATCH -> io.ktor.http.HttpMethod.Patch
-        HttpMethod.HEAD -> io.ktor.http.HttpMethod.Head
-        HttpMethod.OPTIONS -> throw UnsupportedOperationException()
-    }
+    private fun mapHttpMethod(request: RequestData): io.ktor.http.HttpMethod =
+        when (request.method) {
+            HttpMethod.GET -> io.ktor.http.HttpMethod.Get
+            HttpMethod.POST -> io.ktor.http.HttpMethod.Post
+            HttpMethod.PUT -> io.ktor.http.HttpMethod.Put
+            HttpMethod.DELETE -> io.ktor.http.HttpMethod.Delete
+            HttpMethod.PATCH -> io.ktor.http.HttpMethod.Patch
+            HttpMethod.HEAD -> io.ktor.http.HttpMethod.Head
+            HttpMethod.OPTIONS -> throw UnsupportedOperationException()
+        }
 
     override fun close() {
         if (closed.compareAndSet(false, true)) {

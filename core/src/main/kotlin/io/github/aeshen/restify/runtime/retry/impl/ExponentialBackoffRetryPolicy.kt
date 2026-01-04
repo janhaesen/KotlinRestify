@@ -20,7 +20,7 @@ class ExponentialBackoffRetryPolicy(
     private val maxDelayMillis: Long = 10_000,
     private val jitterFactor: Double = 0.1,
     private val retryOn: (Throwable) -> Boolean = { true },
-    private val random: Random = Random.Default
+    private val random: Random = Random.Default,
 ) : BaseRetryPolicy(timeoutMillis, maxAttemptsOverride) {
     init {
         require(baseDelayMillis >= 0) { "baseDelayMillis must be >= 0" }
@@ -31,7 +31,10 @@ class ExponentialBackoffRetryPolicy(
 
     override fun shouldRetry(t: Throwable): Boolean = retryOn(t)
 
-    override fun computeDelayMillis(attempt: Int, last: Throwable?): Long {
+    override fun computeDelayMillis(
+        attempt: Int,
+        last: Throwable?,
+    ): Long {
         // attempt is 1-based (first retry after attempt == 1)
         val raw = (baseDelayMillis * multiplier.pow((attempt - 1).toDouble())).toLong()
         val capped = raw.coerceAtMost(maxDelayMillis)

@@ -42,16 +42,18 @@ fun findMatchingParam(
 
     params
         .firstOrNull {
-            val n = it.name?.asString()
-                ?: return@firstOrNull false
+            val n =
+                it.name?.asString()
+                    ?: return@firstOrNull false
             n.endsWith(placeholder, ignoreCase = true)
         }
         ?.let { return it }
 
     params
         .firstOrNull {
-            val n = it.name?.asString()
-                ?: return@firstOrNull false
+            val n =
+                it.name?.asString()
+                    ?: return@firstOrNull false
             n.startsWith(placeholder, ignoreCase = true)
         }
         ?.let { return it }
